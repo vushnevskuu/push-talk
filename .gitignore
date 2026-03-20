@@ -1,0 +1,25 @@
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Build output
+Build/
+*.app
+
+# Artifacts (autotest reports, crash triage)
+Artifacts/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# IDE
+.idea/
+*.xcuserstate
