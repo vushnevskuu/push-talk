@@ -2,6 +2,38 @@ import AppKit
 import Carbon.HIToolbox
 import Foundation
 
+enum ShortcutKind: String {
+    case fieldInsert
+    case obsidianCapture
+
+    var displayTitle: String {
+        switch self {
+        case .fieldInsert:
+            return "Insert Dictation"
+        case .obsidianCapture:
+            return "Obsidian Capture"
+        }
+    }
+
+    var defaultsKey: String {
+        switch self {
+        case .fieldInsert:
+            return "voiceInsert.keyboardShortcut"
+        case .obsidianCapture:
+            return "voiceInsert.obsidianKeyboardShortcut"
+        }
+    }
+
+    var defaultShortcut: KeyboardShortcut {
+        switch self {
+        case .fieldInsert:
+            return .default
+        case .obsidianCapture:
+            return .obsidianDefault
+        }
+    }
+}
+
 struct KeyboardShortcut: Codable, Equatable {
     let keyCode: UInt16
     let modifiersRawValue: UInt
@@ -25,6 +57,10 @@ struct KeyboardShortcut: Codable, Equatable {
     static let `default` = KeyboardShortcut(
         keyCode: UInt16(kVK_Space),
         modifiers: [.control, .option]
+    )
+    static let obsidianDefault = KeyboardShortcut(
+        keyCode: UInt16(kVK_Space),
+        modifiers: [.control, .option, .shift]
     )
 
     static func capture(from event: NSEvent) -> KeyboardShortcut? {
@@ -162,19 +198,17 @@ struct KeyboardShortcut: Codable, Equatable {
 }
 
 enum KeyboardShortcutStore {
-    private static let defaultsKey = "voiceInsert.keyboardShortcut"
-
-    static func load() -> KeyboardShortcut {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+    static func load(_ kind: ShortcutKind = .fieldInsert) -> KeyboardShortcut {
+        guard let data = UserDefaults.standard.data(forKey: kind.defaultsKey),
               let shortcut = try? JSONDecoder().decode(KeyboardShortcut.self, from: data) else {
-            return .default
+            return kind.defaultShortcut
         }
 
         return shortcut
     }
 
-    static func save(_ shortcut: KeyboardShortcut) {
+    static func save(_ shortcut: KeyboardShortcut, kind: ShortcutKind = .fieldInsert) {
         guard let data = try? JSONEncoder().encode(shortcut) else { return }
-        UserDefaults.standard.set(data, forKey: defaultsKey)
+        UserDefaults.standard.set(data, forKey: kind.defaultsKey)
     }
 }

@@ -34,6 +34,8 @@ struct SettingsView: View {
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.permissions)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.isRecordingShortcut)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.requiresInitialSetup)
+        .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.recordingHUDStyle)
+        .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.dictationLanguage)
         .onAppear {
             model.refreshPermissionsFromUI()
         }
@@ -100,9 +102,9 @@ struct SettingsView: View {
                     )
 
                     HeroMetric(
-                        title: "Feedback",
-                        value: "Top Indicator",
-                        detail: "Appears while recording"
+                        title: "Obsidian",
+                        value: model.obsidianVaultLinked ? "Linked" : "Choose Vault",
+                        detail: model.obsidianShortcutDisplayText
                     )
                 }
             }
@@ -130,6 +132,7 @@ struct SettingsView: View {
     private var primaryColumn: some View {
         VStack(alignment: .leading, spacing: 20) {
             shortcutCard
+            obsidianCard
             permissionsCard
         }
     }
@@ -179,6 +182,97 @@ struct SettingsView: View {
                         text: "Recording a new shortcut now. Press Escape to cancel."
                     )
                     .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
+    }
+
+    private var obsidianCard: some View {
+        SettingsSurface {
+            VStack(alignment: .leading, spacing: 18) {
+                SectionHeader(
+                    icon: "books.vertical.fill",
+                    iconTint: Color(red: 0.85, green: 0.44, blue: 0.16),
+                    title: "Obsidian Capture",
+                    subtitle: "Hold a second shortcut to save a voice note straight into Obsidian. VoiceInsert files it into folders like Ideas, Tasks, Meetings, Journal, Notes, or Inbox."
+                )
+
+                HStack(alignment: .top, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Current shortcut")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+
+                        Text(model.obsidianShortcutDisplayText)
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .contentTransition(.numericText())
+
+                        ShortcutRecorderView(
+                            shortcut: model.obsidianShortcut,
+                            isRecording: $model.isRecordingObsidianShortcut,
+                            onCapture: model.updateObsidianShortcut,
+                            onCancel: model.cancelObsidianShortcutRecording
+                        )
+                    }
+
+                    Divider()
+                        .frame(maxHeight: 120)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            Text("Vault")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+
+                            StatusPill(
+                                title: model.obsidianVaultLinked ? "Linked" : "Missing",
+                                tint: model.obsidianVaultLinked ? .green : .orange
+                            )
+                        }
+
+                        Text(model.obsidianVaultDisplayText)
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+
+                        Text(model.obsidianVaultDetailText)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 10) {
+                            Button("Choose Vault") {
+                                model.chooseObsidianVault()
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            if model.obsidianVaultLinked {
+                                Button("Reveal Vault") {
+                                    model.revealObsidianVault()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                }
+
+                InlineNotice(
+                    icon: "tray.full",
+                    text: model.obsidianCaptureHelpText
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Folder routing")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        FolderPreviewChip(title: "Ideas")
+                        FolderPreviewChip(title: "Tasks")
+                        FolderPreviewChip(title: "Meetings")
+                        FolderPreviewChip(title: "Journal")
+                        FolderPreviewChip(title: "Notes")
+                        FolderPreviewChip(title: "Inbox")
+                    }
                 }
             }
         }
@@ -279,6 +373,34 @@ struct SettingsView: View {
                     isOn: $model.autoPunctuation
                 )
 
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Dictation language")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { model.dictationLanguage },
+                            set: { model.updateDictationLanguage($0) }
+                        )
+                    ) {
+                        ForEach(DictationLanguage.allCases, id: \.self) { language in
+                            Text(language.title).tag(language)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .disabled(model.phase != .idle)
+
+                    Text(
+                        "Uses Apple's on-device recognizer for the selected language. Download the language in System Settings → Keyboard → Dictation if recognition is unavailable."
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
                 SettingToggleRow(
                     title: "Show floating button",
                     detail: "Keeps the hold-to-talk mouse button visible on screen in addition to the global shortcut.",
@@ -290,7 +412,7 @@ struct SettingsView: View {
 
                 InlineNotice(
                     icon: "mic.badge.plus",
-                    text: "While you hold the shortcut or floating button, VoiceInsert now shows a small live waveform at the top center of the screen."
+                    text: "While you hold either shortcut or the floating button, VoiceInsert shows a compact live waveform at the top center of the screen."
                 )
             }
         }
@@ -303,15 +425,30 @@ struct SettingsView: View {
                     icon: "waveform.path.ecg.rectangle.fill",
                     iconTint: Color(red: 0.91, green: 0.29, blue: 0.24),
                     title: "Live Feedback",
-                    subtitle: "A compact recording indicator appears at the top center while you are holding to dictate, then disappears immediately on release."
+                    subtitle: "Choose how the recording indicator looks while you hold to dictate. This changes only the visual style of the top-center HUD."
                 )
 
-                VoiceWavePreview()
+                VoiceWavePreview(style: model.recordingHUDStyle)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("HUD style")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(RecordingHUDStyle.allCases, id: \.self) { style in
+                        HUDStyleOptionCard(
+                            style: style,
+                            isSelected: model.recordingHUDStyle == style,
+                            action: { model.updateRecordingHUDStyle(style) }
+                        )
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 8) {
                     FeedbackBullet(text: "Shows that the microphone is actively listening.")
                     FeedbackBullet(text: "Visualizes your voice energy in real time.")
-                    FeedbackBullet(text: "Stays out of the way and vanishes as soon as you stop talking.")
+                    FeedbackBullet(text: "Lets you choose between the current pill, a small round orb, or a bare waveform.")
+                    FeedbackBullet(text: "Works for both field insertion and Obsidian capture.")
                 }
             }
         }
@@ -455,6 +592,22 @@ private struct HeroMetric: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color.black.opacity(0.035))
         )
+    }
+}
+
+private struct FolderPreviewChip: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Color(red: 0.42, green: 0.36, blue: 0.20))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(Color(red: 0.98, green: 0.95, blue: 0.87))
+            )
     }
 }
 
@@ -604,22 +757,15 @@ private struct SettingToggleRow: View {
 }
 
 private struct VoiceWavePreview: View {
+    let style: RecordingHUDStyle
+
     private let previewLevels: [Double] = [0.16, 0.24, 0.52, 0.78, 0.44, 0.30, 0.72, 0.90, 0.58, 0.28, 0.48, 0.22]
 
     var body: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.red.opacity(0.12))
-                    .frame(width: 42, height: 42)
-
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.red)
-            }
-
-            VoiceWaveVisualizer(levels: previewLevels)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack {
+            Spacer(minLength: 0)
+            RecordingHUDStylePreview(style: style, levels: previewLevels, compact: false)
+            Spacer(minLength: 0)
         }
         .padding(16)
         .background(
@@ -635,6 +781,123 @@ private struct VoiceWavePreview: View {
                     )
                 )
         )
+    }
+}
+
+private struct HUDStyleOptionCard: View {
+    let style: RecordingHUDStyle
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(style.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        if isSelected {
+                            StatusPill(title: "Selected", tint: Color(red: 0.91, green: 0.29, blue: 0.24))
+                        }
+                    }
+
+                    Text(style.detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                RecordingHUDStylePreview(
+                    style: style,
+                    levels: [0.20, 0.36, 0.60, 0.84, 0.48, 0.30, 0.72, 0.40],
+                    compact: true
+                )
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(isSelected ? Color(red: 0.98, green: 0.94, blue: 0.94) : Color.white.opacity(0.72))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(
+                                isSelected
+                                    ? Color(red: 0.91, green: 0.29, blue: 0.24).opacity(0.30)
+                                    : Color.black.opacity(0.04),
+                                lineWidth: 1
+                            )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct RecordingHUDStylePreview: View {
+    let style: RecordingHUDStyle
+    let levels: [Double]
+    let compact: Bool
+
+    var body: some View {
+        Group {
+            switch style {
+            case .glassBar:
+                glassBar
+            case .compactOrb:
+                compactOrb
+            case .bareWaves:
+                bareWaves
+            }
+        }
+    }
+
+    private var glassBar: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                }
+
+            VoiceWaveVisualizer(levels: levels, style: .glassBar)
+                .frame(width: compact ? 70 : 136, height: compact ? 18 : 30)
+        }
+        .frame(width: compact ? 102 : 184, height: compact ? 42 : 60)
+    }
+
+    private var compactOrb: some View {
+        ZStack {
+            GlassDropletSurface()
+
+            compactOrbPreviewWaves
+        }
+        .frame(width: compact ? 38 : 68, height: compact ? 44 : 78)
+    }
+
+    private var bareWaves: some View {
+        VoiceWaveVisualizer(levels: levels, style: .bareWaves)
+            .frame(width: compact ? 84 : 150, height: compact ? 20 : 30)
+    }
+
+    private var compactOrbPreviewWaves: some View {
+        let maskShape = GlassDropletShape()
+            .scaleEffect(x: 0.965, y: 0.965, anchor: .center)
+
+        return ZStack {
+            OrbWaveField(levels: Array(levels.suffix(5)), compact: compact)
+                .frame(width: compact ? 32 : 56, height: compact ? 30 : 50)
+
+            OrbWaveField(levels: Array(levels.suffix(5)), compact: compact)
+                .frame(width: compact ? 32 : 56, height: compact ? 30 : 50)
+                .blur(radius: compact ? 1.2 : 1.8)
+                .opacity(0.20)
+        }
+        .offset(y: 0.5)
+        .mask(maskShape)
     }
 }
 

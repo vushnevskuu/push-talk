@@ -6,19 +6,27 @@ import SwiftUI
 final class RecordingHUDController {
     private var panel: NSPanel?
     private var isVisible = false
+    private weak var hostingView: ClearHUDHostingView<RecordingHUDView>?
+    private weak var feedbackModel: RecordingFeedbackModel?
+    private var currentStyle: RecordingHUDStyle = .glassBar
 
-    func attach(to feedbackModel: RecordingFeedbackModel) {
-        panel = makePanel(with: feedbackModel)
+    func attach(to feedbackModel: RecordingFeedbackModel, style: RecordingHUDStyle) {
+        self.feedbackModel = feedbackModel
+        currentStyle = style
+        panel = makePanel(with: feedbackModel, style: style)
     }
 
     func show() {
         guard let panel else { return }
 
-        panel.setFrame(defaultFrame(for: panel.frame.size), display: false)
+        panel.setFrame(defaultFrame(for: currentStyle.panelSize), display: false)
         panel.alphaValue = isVisible ? 1 : 0
         panel.orderFrontRegardless()
 
-        guard !isVisible else { return }
+        if isVisible {
+            panel.alphaValue = 1
+            return
+        }
         isVisible = true
 
         NSAnimationContext.runAnimationGroup { context in
@@ -36,15 +44,31 @@ final class RecordingHUDController {
             context.duration = 0.12
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
-        } completionHandler: {
+        } completionHandler: { [weak self] in
             Task { @MainActor in
+                guard let self else { return }
+                // If show() ran again while fading out, stay visible — avoid orderOut + stuck alpha / ghost hit layer.
+                guard !self.isVisible else { return }
                 panel.orderOut(nil)
             }
         }
     }
 
-    private func makePanel(with feedbackModel: RecordingFeedbackModel) -> NSPanel {
-        let size = NSSize(width: 248, height: 72)
+    func updateStyle(_ style: RecordingHUDStyle) {
+        currentStyle = style
+        guard let panel, let feedbackModel, let hostingView else { return }
+
+        hostingView.rootView = RecordingHUDView(model: feedbackModel, style: style)
+
+        if isVisible {
+            panel.setFrame(defaultFrame(for: style.panelSize), display: true, animate: true)
+        } else {
+            panel.setFrame(defaultFrame(for: style.panelSize), display: false)
+        }
+    }
+
+    private func makePanel(with feedbackModel: RecordingFeedbackModel, style: RecordingHUDStyle) -> NSPanel {
+        let size = style.panelSize
         let panel = NonActivatingPanel(
             contentRect: defaultFrame(for: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -64,7 +88,11 @@ final class RecordingHUDController {
         panel.isMovable = false
         panel.ignoresMouseEvents = true
         panel.alphaValue = 0
-        panel.contentView = NSHostingView(rootView: RecordingHUDView(model: feedbackModel))
+        let hostingView = ClearHUDHostingView(rootView: RecordingHUDView(model: feedbackModel, style: style))
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.contentView = hostingView
+        self.hostingView = hostingView
 
         return panel
     }
@@ -83,5 +111,22 @@ final class RecordingHUDController {
     private func activeScreen() -> NSScreen? {
         let mouseLocation = NSEvent.mouseLocation
         return NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) }
+    }
+}
+
+private final class ClearHUDHostingView<Content: View>: NSHostingView<Content> {
+    override var isOpaque: Bool {
+        false
+    }
+
+    /// HUD must never steal clicks / keyboard focus from the app under the cursor (SwiftUI can still hit-test otherwise).
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
     }
 }

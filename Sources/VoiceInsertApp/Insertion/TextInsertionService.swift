@@ -36,6 +36,10 @@ private struct RecordedClick {
     let timestamp: Date
 }
 
+private struct MouseDownSample: Sendable {
+    let location: CGPoint
+}
+
 private struct HelperRunResult: Sendable {
     let terminationStatus: Int32
     let output: String
@@ -65,12 +69,20 @@ final class TextInsertionService {
         }
     }
 
-    func captureTarget() -> TextInsertionTarget {
+    func captureTarget(includeFocusedElement: Bool = true) -> TextInsertionTarget {
         let frontmostApplication = NSWorkspace.shared.frontmostApplication
         let frontmostPID = frontmostApplication?.processIdentifier
         let effectivePID = resolvedTargetPID(frontmostPID: frontmostPID)
-        let bundleIdentifier = frontmostApplication?.bundleIdentifier
-        let focusedElement = AXIsProcessTrusted()
+        let effectiveApplication: NSRunningApplication?
+        if let effectivePID, effectivePID == frontmostPID {
+            effectiveApplication = frontmostApplication
+        } else if let effectivePID {
+            effectiveApplication = NSRunningApplication(processIdentifier: effectivePID)
+        } else {
+            effectiveApplication = frontmostApplication
+        }
+        let bundleIdentifier = effectiveApplication?.bundleIdentifier
+        let focusedElement = includeFocusedElement && AXIsProcessTrusted()
             ? focusedUIElement(for: effectivePID) ?? (frontmostPID == effectivePID ? focusedUIElement() : nil)
             : nil
         let clickPoint = recentClickPoint(for: effectivePID)
@@ -253,7 +265,7 @@ final class TextInsertionService {
             return ""
         }
 
-        if bundleIdentifier == "com.openai.codex",
+        if let bid = bundleIdentifier, (bid == "com.openai.codex" || bid.hasPrefix("com.todesktop.")),
            Self.codexPromptPrefixes.contains(where: { trimmedRawValue.hasPrefix($0) }) {
             return ""
         }
@@ -271,7 +283,7 @@ final class TextInsertionService {
         for target: TextInsertionTarget?,
         focusedElement: AXUIElement
     ) -> Bool {
-        guard target?.frontmostBundleIdentifier == "com.openai.codex" else {
+        guard Self.isCursorLikeApp(target) else {
             return false
         }
 
@@ -318,6 +330,10 @@ final class TextInsertionService {
             try restoreInteractionTarget(target, focusedElement: focusedElement)
             waitForShortcutModifiersToRelease()
 
+            if Self.isCursorLikeApp(target) {
+                try simulateSelectAllShortcut(targetPID: targetPID)
+            }
+
             try simulatePasteShortcut(targetPID: targetPID)
             let verification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
 
@@ -334,6 +350,11 @@ final class TextInsertionService {
 
             if verification == nil {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+                if shouldAssumePasteSucceededWithoutVerification(for: target) {
+                    appendDebugTrace("pasteboard_verification=assumed_success_without_ax")
+                    snapshot.restore()
+                    return true
+                }
                 snapshot.restore()
                 return false
             }
@@ -351,6 +372,10 @@ final class TextInsertionService {
         try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
         waitForShortcutModifiersToRelease()
 
+        if Self.isCursorLikeApp(target) {
+            try simulateSelectAllShortcut(targetPID: targetPID)
+        }
+
         try simulateTyping(text, targetPID: targetPID, chunkSize: chunkSize)
     }
 
@@ -361,19 +386,20 @@ final class TextInsertionService {
         }
 
         waitForShortcutModifiersToRelease()
-        let isCodex = target?.frontmostBundleIdentifier == "com.openai.codex"
-        if isCodex {
-            _ = reactivateTargetAppIfNeeded(target)
+        if Self.isCursorLikeApp(target) {
+            let targetPID = reactivateTargetAppIfNeeded(target)
+            try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
+            try simulateSelectAllShortcut(targetPID: targetPID)
         }
 
         var arguments: [String] = []
         arguments.append("--event-injector")
 
-        if !isCodex, let bundleIdentifier = target?.frontmostBundleIdentifier {
+        if !Self.isCursorLikeApp(target), let bundleIdentifier = target?.frontmostBundleIdentifier {
             arguments.append(contentsOf: ["--bundle-id", bundleIdentifier])
         }
 
-        if !isCodex,
+        if !Self.isCursorLikeApp(target),
            let clickPoint = target?.clickPoint {
             arguments.append(contentsOf: [
                 "--click-x",
@@ -419,6 +445,10 @@ final class TextInsertionService {
         let targetPID = reactivateTargetAppIfNeeded(target)
         try restoreInteractionTarget(target, focusedElement: focusedElement)
         waitForShortcutModifiersToRelease()
+
+        if Self.isCursorLikeApp(target) {
+            try simulateSelectAllShortcut(targetPID: targetPID)
+        }
 
         guard performPasteMenuAction(on: targetPID) else {
             return false
@@ -512,6 +542,44 @@ final class TextInsertionService {
         RunLoop.current.run(until: Date().addingTimeInterval(0.18))
         appendDebugTrace("frontmost_after_reactivate=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown")")
         return pid
+    }
+
+    private func simulateSelectAllShortcut(targetPID: pid_t?) throws {
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let commandDown = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_Command),
+                keyDown: true
+              ),
+              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: false),
+              let commandUp = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_Command),
+                keyDown: false
+              ) else {
+            throw TextInsertionError.eventCreationFailed
+        }
+
+        commandDown.flags = .maskCommand
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        commandUp.flags = []
+
+        if let targetPID,
+           NSWorkspace.shared.frontmostApplication?.processIdentifier != targetPID {
+            commandDown.postToPid(targetPID)
+            keyDown.postToPid(targetPID)
+            keyUp.postToPid(targetPID)
+            commandUp.postToPid(targetPID)
+        } else {
+            commandDown.post(tap: .cghidEventTap)
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
+            commandUp.post(tap: .cghidEventTap)
+        }
+
+        RunLoop.current.run(until: Date().addingTimeInterval(0.08))
     }
 
     private func simulatePasteShortcut(targetPID: pid_t?) throws {
@@ -669,8 +737,8 @@ final class TextInsertionService {
     ) throws {
         if let focusedElement {
             restoreFocusIfPossible(on: focusedElement)
-        } else if target?.frontmostBundleIdentifier == "com.openai.codex" {
-            appendDebugTrace("restore_target=skip_click_codex")
+        } else if Self.isCursorLikeApp(target) {
+            appendDebugTrace("restore_target=skip_click_cursor")
         } else if let clickPoint = target?.clickPoint {
             try simulateClick(at: clickPoint)
         }
@@ -706,21 +774,11 @@ final class TextInsertionService {
     }
 
     private func installMouseTracking() {
-        globalMouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
-            Task { @MainActor [weak self] in
-                self?.recordMouseDown(event)
-            }
-        }
-
-        localMouseDownMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
-            Task { @MainActor [weak self] in
-                self?.recordMouseDown(event)
-            }
-            return event
-        }
+        globalMouseDownMonitor = Self.makeGlobalMouseMonitor(service: self)
+        localMouseDownMonitor = Self.makeLocalMouseMonitor(service: self)
     }
 
-    private func recordMouseDown(_ event: NSEvent) {
+    private func recordMouseDown(_ sample: MouseDownSample) {
         let currentPID = ProcessInfo.processInfo.processIdentifier
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != currentPID else {
@@ -728,11 +786,40 @@ final class TextInsertionService {
         }
 
         lastRecordedClick = RecordedClick(
-            location: event.cgEvent?.location ?? NSEvent.mouseLocation,
+            location: sample.location,
             appPID: app.processIdentifier,
             bundleIdentifier: app.bundleIdentifier,
             timestamp: Date()
         )
+    }
+
+    nonisolated private static func mouseDownSample(from event: NSEvent) -> MouseDownSample {
+        MouseDownSample(
+            location: event.cgEvent?.location ?? NSEvent.mouseLocation
+        )
+    }
+
+    nonisolated private static func makeGlobalMouseMonitor(
+        service: TextInsertionService
+    ) -> Any? {
+        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak service] event in
+            let sample = mouseDownSample(from: event)
+            Task { @MainActor [weak service] in
+                service?.recordMouseDown(sample)
+            }
+        }
+    }
+
+    nonisolated private static func makeLocalMouseMonitor(
+        service: TextInsertionService
+    ) -> Any? {
+        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak service] event in
+            let sample = mouseDownSample(from: event)
+            Task { @MainActor [weak service] in
+                service?.recordMouseDown(sample)
+            }
+            return event
+        }
     }
 
     private func recentClickPoint(for pid: pid_t?) -> CGPoint? {
@@ -749,12 +836,10 @@ final class TextInsertionService {
     private func inferredClickPoint(for pid: pid_t?, bundleIdentifier: String?) -> CGPoint? {
         guard let pid, let bundleIdentifier else { return nil }
 
-        switch bundleIdentifier {
-        case "com.openai.codex":
+        if bundleIdentifier == "com.openai.codex" || bundleIdentifier.hasPrefix("com.todesktop.") {
             return codexComposerClickPoint(for: pid)
-        default:
-            return nil
         }
+        return nil
     }
 
     private func codexComposerClickPoint(for pid: pid_t) -> CGPoint? {
@@ -798,7 +883,15 @@ final class TextInsertionService {
         guard focusedElement == nil else { return false }
         guard let bundleIdentifier = target?.frontmostBundleIdentifier else { return false }
 
-        return Self.typingPreferredBundleIdentifiers.contains(bundleIdentifier)
+        return bundleIdentifier == "com.openai.codex" || bundleIdentifier.hasPrefix("com.todesktop.")
+    }
+
+    private func shouldAssumePasteSucceededWithoutVerification(for target: TextInsertionTarget?) -> Bool {
+        guard let bundleIdentifier = target?.frontmostBundleIdentifier else {
+            return false
+        }
+
+        return Self.unverifiablePasteBundleIdentifiers.contains(bundleIdentifier)
     }
 
     private func executeAppleScript(_ source: String) throws -> Bool {
@@ -919,9 +1012,14 @@ final class TextInsertionService {
     ) -> Bool? {
         guard let element, let baseline else { return nil }
 
+        let baselineHasObservableText = baseline.value != nil || baseline.selectedText != nil
+        var observedTextAttributes = baselineHasObservableText
         let deadline = Date().addingTimeInterval(0.9)
         while Date() < deadline {
             let currentValue = copyStringAttribute(kAXValueAttribute, from: element)
+            if currentValue != nil {
+                observedTextAttributes = true
+            }
             if let currentValue,
                currentValue != baseline.value,
                currentValue.contains(text) {
@@ -929,11 +1027,18 @@ final class TextInsertionService {
             }
 
             let currentSelectedText = copyStringAttribute(kAXSelectedTextAttribute, from: element)
+            if currentSelectedText != nil {
+                observedTextAttributes = true
+            }
             if currentSelectedText == text {
                 return true
             }
 
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        if !observedTextAttributes {
+            return nil
         }
 
         return false
@@ -1035,8 +1140,22 @@ final class TextInsertionService {
         "Вставить как обычный текст"
     ]
 
-    private static let typingPreferredBundleIdentifiers: Set<String> = [
-        "com.openai.codex"
+    private static func isCursorLikeApp(_ target: TextInsertionTarget?) -> Bool {
+        guard let id = target?.frontmostBundleIdentifier else { return false }
+        return id == "com.openai.codex" || id.hasPrefix("com.todesktop.")
+    }
+
+    private static let unverifiablePasteBundleIdentifiers: Set<String> = [
+        "com.apple.Safari",
+        "com.google.Chrome",
+        "company.thebrowser.Browser",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "org.mozilla.firefox",
+        "com.vivaldi.Vivaldi",
+        "com.kagi.kagimacOS",
+        "com.operasoftware.Opera",
+        "com.operasoftware.OperaGX"
     ]
 
     private static let placeholderAttributeNames = [

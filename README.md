@@ -1,76 +1,87 @@
-# Hold-to-Talk Dictation for macOS
+# Hold-to-Talk Dictation for macOS (VoiceInsert)
 
-## Текущее состояние репозитория
+**What this is:** a complete macOS app for dictation into the **focused text field** (any app) and, separately, dictation into **Obsidian notes** as Markdown in your vault. Both flows work out of the box after permissions and shortcuts are set up.  
+**What is not included:** “smart” post-processing of notes (agents, LLMs, bots, etc.)—you add that yourself on top of plain `.md` files; see [docs/obsidian-files.md](docs/obsidian-files.md).
 
-В этой папке уже есть рабочая реализация MVP на `SwiftUI` + `AppKit`:
+---
 
-- плавающая кнопка, которую можно удерживать мышью;
-- запись голоса через `AVAudioEngine`;
-- распознавание речи через `Speech`;
-- вставка текста в активное поле через `Accessibility API`;
-- fallback через `Cmd+V` и временный буфер обмена;
-- упаковка в `.app` через скрипт `Scripts/build_app.sh`.
+## Repository status
 
-### Быстрый запуск
+This repo contains a working SwiftUI + AppKit MVP:
 
-1. Открой Terminal в корне проекта.
-2. Собери `.app`:
+- Floating hold-to-talk button (mouse)
+- Audio capture via `AVAudioEngine`
+- Speech recognition via `Speech`
+- Text insertion into the focused field via Accessibility API
+- Fallback using `Cmd+V` and a temporary pasteboard
+- `.app` packaging via `Scripts/build_app.sh`
+- A separate shortcut and vault picker for **Obsidian** (notes under `Voice Captures/` inside the vault)
+
+For vault layout and where responsibility ends, see **[docs/obsidian-files.md](docs/obsidian-files.md)**.
+
+### Quick start
+
+1. Open Terminal at the project root.
+2. Build the app:
 
 ```bash
 ./Scripts/build_app.sh
 ```
 
-3. Готовое приложение появится по пути:
+3. Output path:
 
 ```text
 Build/VoiceInsert.app
 ```
 
-4. Запусти его двойным кликом или командой:
+4. Launch:
 
 ```bash
 open Build/VoiceInsert.app
 ```
 
-### Что нужно выдать приложению
+### Permissions
 
-- `Microphone`
-- `Speech Recognition`
-- `Accessibility`
+- Microphone
+- Speech Recognition
+- Accessibility
 
-Без `Accessibility` приложение сможет распознать речь, но не сможет надёжно вставить текст в чужое поле ввода.
+Without Accessibility, speech may still work but insertion into other apps’ fields is unreliable.
 
-Лёгкое macOS-приложение в menu bar для диктовки текста по удержанию горячей клавиши.
-
-Пользователь ставит курсор в любой текстовый input, зажимает выбранную клавишу, говорит по-русски, отпускает клавишу — приложение транскрибирует речь и вставляет результат в активное поле ввода.
+VoiceInsert is a lightweight menu bar utility: hold your shortcut, speak, release—the recognized text is inserted into the active field (dictation language is configurable in Settings). A second shortcut saves dictation into the configured Obsidian vault.
 
 ---
 
-## Что умеет приложение
+## Features
 
-- работает как menu bar utility;
-- поддерживает настраиваемую горячую клавишу;
-- начинает запись на `keyDown`;
-- завершает запись на `keyUp`;
-- транскрибирует русскую речь;
-- вставляет текст в текущее активное поле ввода;
-- использует fallback через буфер обмена, если direct insertion недоступен;
-- показывает понятный onboarding для системных разрешений.
-
----
-
-## Основной сценарий
-
-1. Открой любое приложение с текстовым полем.
-2. Поставь курсор в input.
-3. Зажми назначенную горячую клавишу.
-4. Продиктуй фразу.
-5. Отпусти клавишу.
-6. Получи распознанный текст в активном поле.
+- Menu bar utility
+- Two independent shortcuts: **insert into field** and **Obsidian capture** (after you choose a vault in Settings)
+- Recording starts on key down, ends on key up
+- Dictation language selectable in Settings (e.g. Russian / English)
+- Inserts into the current focused text field
+- Creates Markdown files under `Voice Captures/` in the vault—see [docs/obsidian-files.md](docs/obsidian-files.md)
+- Clipboard-based fallback when direct Accessibility insertion fails
+- Onboarding for system permissions
 
 ---
 
-## Стек
+## Main flows
+
+### Dictate into a field
+
+1. Open any app with a text field.
+2. Focus the field.
+3. Hold the **field insert** shortcut.
+4. Speak and release—the text appears in the field.
+
+### Dictate into Obsidian
+
+1. In Settings, choose your vault folder (must contain an `.obsidian` directory).
+2. Hold the **Obsidian capture** shortcut, speak, release—a new `.md` appears under `Voice Captures/…` (category inferred from your phrase; details in [docs/obsidian-files.md](docs/obsidian-files.md)).
+
+---
+
+## Stack
 
 - Swift
 - SwiftUI
@@ -82,36 +93,33 @@ open Build/VoiceInsert.app
 
 ---
 
-## Требования
+## Requirements
 
-- macOS 13+ рекомендуется
-- Xcode 15+ рекомендуется
-- Apple Silicon или Intel Mac
-- доступ к микрофону
-- разрешение на Speech Recognition
-- разрешение Accessibility
-- в зависимости от способа глобального перехвата клавиш может понадобиться Input Monitoring
-
----
-
-## Конфиденциальность
-
-Базовые принципы:
-- аудио не сохраняется по умолчанию;
-- транскрипты не отправляются на собственный сервер;
-- содержимое речи не должно логироваться в production;
-- debug logging выключен по умолчанию.
+- macOS 13+ recommended
+- Xcode 15+ recommended
+- Apple Silicon or Intel Mac
+- Microphone access
+- Speech Recognition permission
+- Accessibility permission
+- Input Monitoring may be required depending on global hotkey capture mode
 
 ---
 
-## Definition of Done
+## Privacy
 
-Считать MVP готовым, когда:
+- Audio is not persisted by default
+- Transcripts are not sent to a first-party server
+- Speech content should not be logged in production builds
+- Debug logging is off by default
 
-- приложение стабильно работает в типовых текстовых полях;
-- пользователь может менять hotkey в настройках;
-- русский speech-to-text даёт пригодный текст;
-- вставка работает хотя бы в Safari textarea, Notes и TextEdit;
-- при ошибках permissions приложение остаётся управляемым и объясняет, что делать дальше.
+---
+
+## Definition of Done (MVP)
+
+- Stable behavior in typical text fields
+- User can change the hotkey in Settings
+- Speech-to-text in the chosen language yields usable text
+- Insertion works at least in Safari text areas, Notes, and TextEdit
+- On permission errors the app stays usable and explains next steps
 
 ---

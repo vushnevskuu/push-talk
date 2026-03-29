@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon.HIToolbox
 import Foundation
 
@@ -10,6 +11,8 @@ enum HotkeyMonitorState: String {
 
 final class HotkeyMonitor {
     private let stateLock = NSLock()
+    private let registrationSignature = OSType(fourCharCodeStatic("VIns"))
+    private let registrationIdentifier = UInt32(truncatingIfNeeded: UUID().uuidString.hashValue)
     private var shortcut = KeyboardShortcut.default
     private var isSuspended = false
     private var isPressed = false
@@ -19,18 +22,21 @@ final class HotkeyMonitor {
     private var monitorState: HotkeyMonitorState = .inactive
 
     private var hotKeyRef: EventHotKeyRef?
+    private var registeredHotKeyID: EventHotKeyID?
     private var eventHandlerRef: EventHandlerRef?
     private var eventHandlerUPP: EventHandlerUPP?
+    private var eventTap: CFMachPort?
+    private var eventTapRunLoopSource: CFRunLoopSource?
     private var localKeyDownMonitor: Any?
     private var localKeyUpMonitor: Any?
 
     func start() {
-        if hotKeyRef != nil {
+        if hotKeyRef != nil || eventTap != nil {
             dispatchState(.globalTap)
             return
         }
 
-        if installGlobalHotKey() {
+        if installGlobalMonitor() {
             removeLocalFallbackMonitors()
             dispatchState(.globalTap)
             return
@@ -72,6 +78,7 @@ final class HotkeyMonitor {
         isPressed = false
         stateLock.unlock()
 
+        removeEventTap()
         unregisterGlobalHotKey()
         start()
     }
@@ -90,6 +97,18 @@ final class HotkeyMonitor {
         if shouldRelease {
             dispatchRelease()
         }
+    }
+
+    private func installGlobalMonitor() -> Bool {
+        if shouldPreferEventTap, installEventTap() {
+            return true
+        }
+
+        return installGlobalHotKey()
+    }
+
+    private var shouldPreferEventTap: Bool {
+        shortcut.modifiers.isEmpty
     }
 
     private func installGlobalHotKey() -> Bool {
@@ -127,9 +146,9 @@ final class HotkeyMonitor {
             eventHandlerUPP = eventHandler
         }
 
-        var hotKeyID = EventHotKeyID(
-            signature: fourCharCode("VIns"),
-            id: UInt32(shortcut.keyCode)
+        let hotKeyID = EventHotKeyID(
+            signature: registrationSignature,
+            id: registrationIdentifier
         )
 
         let registerStatus = RegisterEventHotKey(
@@ -141,6 +160,10 @@ final class HotkeyMonitor {
             &hotKeyRef
         )
 
+        if registerStatus == noErr {
+            registeredHotKeyID = hotKeyID
+        }
+
         return registerStatus == noErr
     }
 
@@ -149,10 +172,63 @@ final class HotkeyMonitor {
             UnregisterEventHotKey(hotKeyRef)
             self.hotKeyRef = nil
         }
+
+        registeredHotKeyID = nil
+    }
+
+    private func installEventTap() -> Bool {
+        guard eventTap == nil else { return true }
+
+        let eventMask =
+            (CGEventMask(1) << CGEventType.keyDown.rawValue) |
+            (CGEventMask(1) << CGEventType.keyUp.rawValue) |
+            (CGEventMask(1) << CGEventType.tapDisabledByTimeout.rawValue) |
+            (CGEventMask(1) << CGEventType.tapDisabledByUserInput.rawValue)
+
+        let callback: CGEventTapCallBack = { proxy, type, event, userInfo in
+            guard let userInfo else {
+                return Unmanaged.passUnretained(event)
+            }
+
+            let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
+            return monitor.handleEventTapEvent(proxy: proxy, type: type, event: event)
+        }
+
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            return false
+        }
+
+        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+
+        eventTap = tap
+        eventTapRunLoopSource = runLoopSource
+        return true
+    }
+
+    private func removeEventTap() {
+        if let eventTapRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapRunLoopSource, .commonModes)
+            self.eventTapRunLoopSource = nil
+        }
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            self.eventTap = nil
+        }
     }
 
     private func handleRegisteredHotKey(_ event: EventRef?) -> OSStatus {
         guard let event else { return noErr }
+        guard matchesRegisteredHotKey(event) else { return noErr }
 
         switch GetEventKind(event) {
         case UInt32(kEventHotKeyPressed):
@@ -168,6 +244,58 @@ final class HotkeyMonitor {
         }
 
         return noErr
+    }
+
+    private func handleEventTapEvent(
+        proxy _: CGEventTapProxy,
+        type: CGEventType,
+        event: CGEvent
+    ) -> Unmanaged<CGEvent>? {
+        switch type {
+        case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+
+        case .keyDown, .keyUp:
+            let decision = evaluateKeyEvent(
+                type: type == .keyDown ? .keyDown : .keyUp,
+                keyCode: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
+                modifiers: supportedModifiers(from: event.flags)
+            )
+
+            if decision.triggerPress {
+                dispatchPress()
+            }
+
+            if decision.triggerRelease {
+                dispatchRelease()
+            }
+
+            return decision.shouldSuppress ? nil : Unmanaged.passUnretained(event)
+
+        default:
+            return Unmanaged.passUnretained(event)
+        }
+    }
+
+    private func matchesRegisteredHotKey(_ event: EventRef) -> Bool {
+        guard let registeredHotKeyID else { return false }
+
+        var eventHotKeyID = EventHotKeyID()
+        let status = GetEventParameter(
+            event,
+            EventParamName(kEventParamDirectObject),
+            EventParamType(typeEventHotKeyID),
+            nil,
+            MemoryLayout<EventHotKeyID>.size,
+            nil,
+            &eventHotKeyID
+        )
+
+        guard status == noErr else { return false }
+        return eventHotKeyID.signature == registeredHotKeyID.signature && eventHotKeyID.id == registeredHotKeyID.id
     }
 
     private func shouldTriggerRegisteredPress() -> Bool {
@@ -216,7 +344,7 @@ final class HotkeyMonitor {
     }
 
     private func handleLocalKeyDown(_ event: NSEvent) -> NSEvent? {
-        let decision = evaluateLocalKeyEvent(
+        let decision = evaluateKeyEvent(
             type: .keyDown,
             keyCode: event.keyCode,
             modifiers: event.modifierFlags.intersection(KeyboardShortcut.supportedModifiers)
@@ -230,7 +358,7 @@ final class HotkeyMonitor {
     }
 
     private func handleLocalKeyUp(_ event: NSEvent) -> NSEvent? {
-        let decision = evaluateLocalKeyEvent(
+        let decision = evaluateKeyEvent(
             type: .keyUp,
             keyCode: event.keyCode,
             modifiers: event.modifierFlags.intersection(KeyboardShortcut.supportedModifiers)
@@ -243,7 +371,7 @@ final class HotkeyMonitor {
         return decision.shouldSuppress ? nil : event
     }
 
-    private func evaluateLocalKeyEvent(
+    private func evaluateKeyEvent(
         type: NSEvent.EventType,
         keyCode: UInt16,
         modifiers: NSEvent.ModifierFlags
@@ -273,12 +401,42 @@ final class HotkeyMonitor {
                 return KeyEventDecision(shouldSuppress: false, triggerPress: false, triggerRelease: false)
             }
 
+            if isPhysicalKeyStillDown(keyCode: keyCode) {
+                return KeyEventDecision(shouldSuppress: true, triggerPress: false, triggerRelease: false)
+            }
+
             isPressed = false
             return KeyEventDecision(shouldSuppress: true, triggerPress: false, triggerRelease: true)
 
         default:
             return KeyEventDecision(shouldSuppress: false, triggerPress: false, triggerRelease: false)
         }
+    }
+
+    private func supportedModifiers(from flags: CGEventFlags) -> NSEvent.ModifierFlags {
+        var modifiers: NSEvent.ModifierFlags = []
+
+        if flags.contains(.maskCommand) {
+            modifiers.insert(.command)
+        }
+
+        if flags.contains(.maskAlternate) {
+            modifiers.insert(.option)
+        }
+
+        if flags.contains(.maskControl) {
+            modifiers.insert(.control)
+        }
+
+        if flags.contains(.maskShift) {
+            modifiers.insert(.shift)
+        }
+
+        return modifiers
+    }
+
+    private func isPhysicalKeyStillDown(keyCode: UInt16) -> Bool {
+        CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(keyCode))
     }
 
     private func dispatchPress() {
@@ -336,6 +494,10 @@ final class HotkeyMonitor {
     private func fourCharCode(_ string: String) -> OSType {
         string.utf8.reduce(0) { ($0 << 8) + OSType($1) }
     }
+}
+
+private func fourCharCodeStatic(_ string: String) -> UInt32 {
+    string.utf8.reduce(0) { ($0 << 8) + UInt32($1) }
 }
 
 private struct KeyEventDecision {

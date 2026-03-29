@@ -501,3 +501,364 @@ Use this file to preserve:
 - Warnings: `none`
 - Crash triage: no new crash reports in this run.
 - Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:14:29
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-081412`
+- New crash reports: `0`
+- Warnings: `none`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:15:21
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-081505`
+- New crash reports: `0`
+- Warnings: `none`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:15:50
+- Result: `pass`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-081534`
+- New crash reports: `0`
+- Warnings: `none`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:22:33
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-082212`
+- New crash reports: `0`
+- Warnings: `none`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:23:42
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-082320`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:29:56
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-082935`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:37:53
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-083731`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:40:52
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-084031`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 08:44:32
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-084411`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 12:07:14
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-120652`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 14:57:01
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-145639`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-20 15:13:22
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260320-151301`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:05:01
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-090440`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:10:46
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-091026`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:13:22
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-091302`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:15:52
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-091532`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:19:56
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-091936`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:24:11
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-092349`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:28:50
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-092830`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:42:44
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-094224`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:48:04
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-094744`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:53:52
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-095331`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 09:58:16
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-095756`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 10:02:32
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-100211`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 10:08:30
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-100809`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 10:10:43
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-101023`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 10:13:42
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-101317`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 10:26:01
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-102533`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 12:55:31
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-125503`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Incident 2026-03-21 12:52-12:53
+- Reports:
+  - `/Users/vishnevsky/Library/Logs/DiagnosticReports/VoiceInsert-2026-03-21-125247.ips`
+  - `/Users/vishnevsky/Library/Logs/DiagnosticReports/VoiceInsert-2026-03-21-125310.ips`
+- Additional repeat:
+  - `/Users/vishnevsky/Library/Logs/DiagnosticReports/VoiceInsert-2026-03-21-125744.ips`
+- Symptom: app crashed right after switching headphones / audio device.
+- Signature: `EXC_BAD_ACCESS` on `com.apple.main-thread` in `VoiceInsertApp.body.getter`, inside `MenuBarExtra` content closure.
+- Root cause: SwiftUI `MenuBarExtra` itself was the unstable path. It could re-render during system/menu-bar status churn around Bluetooth audio route changes, and the scene closure repeatedly crashed in `VoiceInsertApp.body`.
+- Final fix: removed `MenuBarExtra` entirely and moved menu bar UI to AppKit `NSStatusItem` + `NSPopover`.
+  - `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/App/VoiceInsertApp.swift`
+  - `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/App/AppDelegate.swift`
+  - `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/App/AppRuntime.swift`
+  - `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/UI/MenuBarStatusItemController.swift`
+- Verification:
+  - the intermediate `MainActor.assumeIsolated` attempt did not fully fix the crash and the repeat report at `12:57:44 +07` confirmed that.
+  - `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-125943` then reported `new_reports: []` after the AppKit status item rewrite.
+
+## Run 2026-03-21 13:00:12
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-125943`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 13:03:12
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-130246`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Incident 2026-03-21 13:01
+- Report:
+  - `/Users/vishnevsky/Library/Logs/DiagnosticReports/VoiceInsert-2026-03-21-130129.ips`
+- Symptom: first dictation worked, second dictation attempt crashed the app.
+- Signature: `EXC_BAD_ACCESS` / `SIGBUS` on `com.apple.main-thread` in `closure #1 in TextInsertionService.installMouseTracking()`.
+- Root cause: the global/local mouse monitor forwarded a live `NSEvent` into `Task { @MainActor ... }`. That event object was unsafe to carry across the async hop and could be invalid by the time the main-actor task touched it.
+- Fix:
+  - replaced the async handoff of `NSEvent` with a small sendable snapshot carrying only the click location
+  - updated `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/Insertion/TextInsertionService.swift`
+- Verification:
+  - `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-130246` reported `new_reports: []` after rebuild and install
+  - remaining autotest failure in that run was the unrelated `voiceinsert_codex_insertion_failed` check, not a crash
+
+## Incident 2026-03-21 13:04
+- Report:
+  - `/Users/vishnevsky/Library/Logs/DiagnosticReports/VoiceInsert-2026-03-21-130414.ips`
+- Symptom: the same second-dictation crash reproduced again immediately after the first mouse-tracking patch.
+- Signature: `EXC_BAD_ACCESS` / `SIGBUS` on `com.apple.main-thread` in `closure #1 in TextInsertionService.installMouseTracking()`.
+- Refined root cause: even after replacing `NSEvent` with a sendable snapshot, the mouse-monitor callback path still inherited actor isolation because the intermediate sink closure was created inside the `@MainActor` service method and then re-used by the AppKit monitor factories.
+- Final fix:
+  - removed the intermediate sink closure created inside `installMouseTracking()`
+  - moved the `Task { @MainActor ... }` hop directly into nonisolated static monitor factory closures
+  - kept only a sendable `MouseDownSample` crossing the callback boundary
+  - updated `/Users/vishnevsky/Desktop/голосовое управление/Sources/VoiceInsertApp/Insertion/TextInsertionService.swift`
+- Verification:
+  - `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-130832` reported `new_reports: []` after rebuild, install, and relaunch
+  - remaining warning in that run was only `voiceinsert_hotkey_activation_inconclusive`, not a crash
+
+## Run 2026-03-21 13:05:44
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-130518`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 13:08:57
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-130832`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 13:14:16
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-131349`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-21 13:20:44
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260321-132018`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.

@@ -9,7 +9,7 @@ enum SpeechRecognitionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .recognizerUnavailable:
-            return "System speech recognition is currently unavailable."
+            return "Speech recognition is unavailable for this language. Check System Settings → Keyboard → Dictation and download the language if needed."
         case .audioEngineBusy:
             return "Couldn't start microphone capture."
         }
@@ -27,6 +27,7 @@ private struct RecognitionCallbackError: LocalizedError, Sendable {
 @MainActor
 final class SpeechRecognitionService {
     private let audioEngine = AVAudioEngine()
+    private var isTapInstalled = false
     private var cachedRecognizer: SFSpeechRecognizer?
     private var cachedLocaleIdentifier: String?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -44,10 +45,6 @@ final class SpeechRecognitionService {
 
     func prewarm(locale: Locale) {
         _ = recognizer(for: locale)
-
-        let inputNode = audioEngine.inputNode
-        _ = inputNode.outputFormat(forBus: 0)
-        audioEngine.prepare()
     }
 
     func startSession(
@@ -93,7 +90,10 @@ final class SpeechRecognitionService {
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
-        inputNode.removeTap(onBus: 0)
+        if isTapInstalled {
+            inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
         Self.installInputTap(
             on: inputNode,
             format: format,
@@ -103,13 +103,16 @@ final class SpeechRecognitionService {
                 levelHandler(level)
             }
         )
+        isTapInstalled = true
 
         audioEngine.prepare()
 
         do {
             try audioEngine.start()
+            persistDebugSnapshot(state: "audio_engine_started")
         } catch {
             cleanupResources(cancelTask: true)
+            persistDebugSnapshot(state: "audio_engine_start_failed", errorMessage: error.localizedDescription)
             throw SpeechRecognitionError.audioEngineBusy
         }
     }
@@ -117,11 +120,12 @@ final class SpeechRecognitionService {
     func finishSession() async throws -> String {
         stopAudioCapture()
         recognitionRequest?.endAudio()
+        try? await Task.sleep(for: .milliseconds(80))
         persistDebugSnapshot(state: "awaiting_recognition_result")
 
         if let deferredResult {
             self.deferredResult = nil
-            cleanupResources(cancelTask: false)
+            cleanupResources(cancelTask: true)
             return try deferredResult.get()
         }
 
@@ -177,7 +181,7 @@ final class SpeechRecognitionService {
     private func resolveFinish(with result: Result<String, Error>) {
         finishTimeoutTask?.cancel()
         finishTimeoutTask = nil
-        cleanupResources(cancelTask: false)
+        cleanupResources(cancelTask: true)
 
         persistDebugSnapshot(
             state: {
@@ -219,7 +223,10 @@ final class SpeechRecognitionService {
             audioEngine.stop()
         }
 
-        audioEngine.inputNode.removeTap(onBus: 0)
+        if isTapInstalled {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
     }
 
     private func cleanupResources(cancelTask: Bool) {
@@ -255,7 +262,7 @@ final class SpeechRecognitionService {
 
                 if !self.lastTranscript.isEmpty,
                    self.lastRecognitionUpdateAt != .distantPast,
-                   Date().timeIntervalSince(self.lastRecognitionUpdateAt) >= 0.7 {
+                   Date().timeIntervalSince(self.lastRecognitionUpdateAt) >= 0.35 {
                     self.resolveFinish(
                         with: .success(
                             self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -264,9 +271,20 @@ final class SpeechRecognitionService {
                     return
                 }
 
-                let maxWait = self.observedAudioSignal ? 4.0 : 2.5
+                let maxWait = self.observedAudioSignal ? 2.0 : 1.5
                 if waited >= maxWait {
                     let text = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if text.isEmpty, !self.observedAudioSignal {
+                        self.persistDebugSnapshot(state: "no_audio_detected")
+                        self.resolveFinish(
+                            with: .failure(
+                                RecognitionCallbackError(
+                                    message: "No microphone audio was detected. Check the active input device and try again."
+                                )
+                            )
+                        )
+                        return
+                    }
                     self.persistDebugSnapshot(
                         state: "finish_timeout",
                         transcriptPreview: text.isEmpty ? nil : text
@@ -284,7 +302,7 @@ final class SpeechRecognitionService {
         request: SFSpeechAudioBufferRecognitionRequest,
         levelHandler: @escaping @MainActor (Double) -> Void
     ) {
-        inputNode.installTap(onBus: 0, bufferSize: 512, format: format) { buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 256, format: format) { buffer, _ in
             request.append(buffer)
 
             let level = normalizedAudioLevel(from: buffer)

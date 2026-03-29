@@ -18,7 +18,7 @@ final class RecordingFeedbackModel: ObservableObject {
 
     func push(level: Double) {
         let clampedLevel = min(max(level, 0), 1)
-        let smoothedLevel = max(0.06, (audioLevel * 0.35) + (clampedLevel * 0.65))
+        let smoothedLevel = max(0.04, (audioLevel * 0.15) + (clampedLevel * 0.85))
 
         audioLevel = smoothedLevel
         audioLevelHistory.append(smoothedLevel)

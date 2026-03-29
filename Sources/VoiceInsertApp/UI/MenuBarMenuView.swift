@@ -13,7 +13,9 @@ struct MenuBarMenuView: View {
 
                         Text(
                             model.permissions.shortcutReady
-                            ? "Background dictation is ready."
+                            ? (model.obsidianVaultLinked
+                                ? "Insert mode and Obsidian capture are ready."
+                                : "Background dictation is ready.")
                             : model.permissions.essentialsGranted
                                 ? "Enable Input Monitoring so your shortcut works everywhere."
                                 : "Finish setup to dictate into other apps."
@@ -32,9 +34,9 @@ struct MenuBarMenuView: View {
                 }
 
                 HStack(spacing: 8) {
-                    MenuInfoChip(label: "Shortcut", value: model.shortcutDisplayText)
+                    MenuInfoChip(label: "Insert", value: model.shortcutDisplayText)
+                    MenuInfoChip(label: "Notes", value: model.obsidianShortcutDisplayText)
                     MenuInfoChip(label: "Permissions", value: permissionCountText)
-                    MenuInfoChip(label: "Monitor", value: model.hotkeyMonitorStatusTitle)
                 }
 
                 Text(model.statusMessage)
@@ -42,6 +44,14 @@ struct MenuBarMenuView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.opacity)
+
+                if model.phase != .idle {
+                    Button("Cancel dictation") {
+                        model.cancelActiveSession()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -52,6 +62,11 @@ struct MenuBarMenuView: View {
 
                 Button("Record New Shortcut") {
                     model.startShortcutRecording()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Record Obsidian Shortcut") {
+                    model.startObsidianShortcutRecording()
                 }
                 .buttonStyle(.bordered)
             }
@@ -67,7 +82,48 @@ struct MenuBarMenuView: View {
                     statusColor: model.permissions.accessibility == .authorized
                         ? .green
                         : Color(red: 0.26, green: 0.46, blue: 0.78)
-                )
+                    )
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Obsidian Capture")
+                            .font(.system(size: 13, weight: .semibold))
+
+                        Text(model.obsidianVaultLinked ? model.obsidianVaultDisplayText : "No vault selected yet")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    MiniStatusBadge(
+                        title: model.obsidianCaptureReady ? "Ready" : (model.obsidianVaultLinked ? "Link OK" : "Needs Vault"),
+                        color: model.obsidianCaptureReady ? .green : .orange
+                    )
+                }
+
+                Text(model.obsidianCaptureHelpText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Button("Choose Vault") {
+                        model.chooseObsidianVault()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    if model.obsidianVaultLinked {
+                        Button("Reveal Vault") {
+                            model.revealObsidianVault()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
             }
 
             if !model.permissions.shortcutReady {
@@ -115,6 +171,7 @@ struct MenuBarMenuView: View {
         .frame(width: 340)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.permissions)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.isPanelVisible)
+        .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.phase)
         .onAppear {
             model.refreshPermissionsFromUI()
         }

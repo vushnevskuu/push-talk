@@ -56,6 +56,15 @@ struct FloatingPanelView: View {
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                if model.phase != .idle {
+                    Button("Cancel dictation") {
+                        model.cancelActiveSession()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Capsule()

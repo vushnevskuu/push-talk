@@ -1,12 +1,12 @@
 import SwiftUI
 
+@MainActor
 struct VoiceInsertApp: App {
-    @StateObject private var model = AppModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("VoiceInsert", systemImage: "mic.circle.fill") {
-            MenuBarMenuView(model: model)
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
     }
 }
