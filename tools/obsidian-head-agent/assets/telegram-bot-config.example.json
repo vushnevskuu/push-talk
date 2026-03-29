@@ -1,0 +1,125 @@
+{
+  "bot_token_env": "TELEGRAM_BOT_TOKEN",
+  "vault_path": "/absolute/path/to/your/ObsidianVault",
+  "default_chat_id": 123456789,
+  "allowed_chat_ids": [
+    123456789
+  ],
+  "timezone": "Asia/Bangkok",
+  "memory_path": "Memory.md",
+  "capture": {
+    "directory": "Inbox/Telegram",
+    "signal_directory": "Inbox/Telegram/Signal",
+    "personal_directory": "Inbox/Telegram/Personal",
+    "noise_directory": "Inbox/Telegram/Noise",
+    "archive_directory": "Inbox/Telegram/_Archive",
+    "capture_noise": false,
+    "capture_bot_messages": false,
+    "capture_commands": false,
+    "acknowledgement": "Принял. Это выглядит полезно, сохранил в Obsidian.",
+    "noise_acknowledgement": "Это не записываю в vault. Если хочешь сохранить мысль, напиши `идея:`, `задача:` или `личное:`."
+  },
+  "review": {
+    "days_stale": 45,
+    "limit": 5
+  },
+  "voice": {
+    "enabled": true,
+    "model": "tiny",
+    "language": null
+  },
+  "vision": {
+    "enabled": true,
+    "recognition_languages": [
+      "ru-RU",
+      "en-US"
+    ],
+    "tesseract_lang": "eng"
+  },
+  "routing": {
+    "enabled": true,
+    "idea_directory": "Идеи",
+    "thought_directory": "Мысли",
+    "post_directory": "посты",
+    "draft_directory": "Inbox/Telegram/Drafts",
+    "enable_drafts": true,
+    "distribution_directory": "Inbox/Telegram/Распределение",
+    "themes_directory": "Темы",
+    "minimum_theme_mentions": 2,
+    "minimum_note_match_score": 40,
+    "minimum_topic_match_score": 40
+  },
+  "local_intake": {
+    "enabled": true,
+    "scan_interval_seconds": 20,
+    "filesystem_watch": true,
+    "normalize_markdown_frontmatter": true,
+    "sources": [
+      "Voice Captures/Inbox",
+      "Voice Captures/Ideas",
+      "Inbox"
+    ],
+    "exclude": [
+      "Inbox/Telegram",
+      "Inbox/Personal",
+      "Inbox/_Processed",
+      "Voice Captures/_Processed"
+    ],
+    "personal_directory": "Inbox/Personal"
+  },
+  "maintenance": {
+    "enabled": true,
+    "interval_minutes": 360,
+    "min_new_signals": 2,
+    "notify_chat": false,
+    "organizer": {
+      "include": [
+        "Идеи",
+        "Мысли",
+        "посты",
+        "Мой путь"
+      ],
+      "distribution_dir": "Inbox/Telegram/Распределение/Legacy",
+      "exclude": [
+        "Inbox/Telegram",
+        "Logs/Tracking",
+        "Reports/Infographics",
+        "Voice Captures",
+        "Темы"
+      ],
+      "cleanup": [
+        "Voice Captures/Inbox",
+        "Voice Captures/Ideas"
+      ],
+      "theme_dir": "Темы",
+      "max_related": 3,
+      "min_link_score": 10,
+      "min_theme_score": 10,
+      "cleanup_min_words": 12
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "ollama",
+    "base_url": "http://localhost:11434",
+    "model": "qwen2.5:7b",
+    "temperature": 0.3,
+    "timeout_seconds": 30,
+    "smart_classify": true,
+    "smart_reply": true,
+    "smart_summary": true,
+    "vault_questions": true
+  },
+  "reminders": [
+    {
+      "id": "monday_vibe_code",
+      "enabled": true,
+      "days": [
+        "monday"
+      ],
+      "time": "09:00",
+      "timezone": "Asia/Bangkok",
+      "message": "Сегодня понедельник. Квест: {quest}\n\nЗапости сегодня vibe code или короткую идею из активных заметок."
+    }
+  ]
+}

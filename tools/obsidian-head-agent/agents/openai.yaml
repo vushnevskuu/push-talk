@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Head Agent"
+  short_description: "Obsidian memory, review, and Telegram bridge"
+  default_prompt: "Use $obsidian-head-agent to review my vault, sync Memory.md, and wire it to a Telegram bot if needed."

@@ -23,3 +23,8 @@ Artifacts/
 # IDE
 .idea/
 *.xcuserstate
+
+# Obsidian head-agent: local secrets (never commit)
+tools/obsidian-head-agent/assets/*real*.json
+tools/obsidian-head-agent/assets/*.state.json
+tools/obsidian-head-agent/scripts/__pycache__/

@@ -19,6 +19,8 @@ This repo contains a working SwiftUI + AppKit MVP:
 
 For vault layout and where responsibility ends, see **[docs/obsidian-files.md](docs/obsidian-files.md)**.
 
+**Optional local tooling:** the folder [`tools/obsidian-head-agent/`](tools/obsidian-head-agent/) holds Obsidian-related scripts (e.g. Telegram bot) for your own machine. It is not required to build VoiceInsert. Real secrets in that tree are listed in `.gitignore` so they stay local. See [`tools/obsidian-head-agent/README.md`](tools/obsidian-head-agent/README.md).
+
 ### Quick start
 
 1. Open Terminal at the project root.
