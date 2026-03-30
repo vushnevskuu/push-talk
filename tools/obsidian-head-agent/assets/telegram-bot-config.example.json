@@ -102,13 +102,14 @@
     "enabled": true,
     "provider": "ollama",
     "base_url": "http://localhost:11434",
-    "model": "qwen2.5:7b",
+    "model": "llama3.2:3b",
     "temperature": 0.3,
     "timeout_seconds": 30,
     "smart_classify": true,
     "smart_reply": true,
     "smart_summary": true,
-    "vault_questions": true
+    "vault_questions": true,
+    "vault_note_format": true
   },
   "reminders": [
     {

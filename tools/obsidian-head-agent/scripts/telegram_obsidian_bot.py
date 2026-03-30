@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -421,6 +422,7 @@ def load_state(path: Path) -> dict[str, Any]:
     state.setdefault("last_update_id", 0)
     state.setdefault("reminders", {})
     state.setdefault("local_intake", {})
+    state.setdefault("capture_preflight", {"by_chat": {}, "sessions": {}})
     maintenance = state.setdefault("maintenance", {})
     if not isinstance(maintenance, dict):
         maintenance = {}
@@ -429,8 +431,72 @@ def load_state(path: Path) -> dict[str, Any]:
     return state
 
 
+def refresh_capture_preflight_from_disk(state: dict[str, Any], state_path: Path) -> None:
+    """Добавляет на диске сессии preflight для чатов, которых ещё нет в памяти (другой процесс / старый state)."""
+    if not state_path.exists():
+        return
+    try:
+        disk = load_json(state_path)
+    except Exception:
+        return
+    if not isinstance(disk, dict):
+        return
+    cp = disk.get("capture_preflight")
+    if not isinstance(cp, dict):
+        return
+    mem = state.setdefault("capture_preflight", {})
+    mem.setdefault("by_chat", {})
+    mem.setdefault("sessions", {})
+    disk_by = cp.get("by_chat") if isinstance(cp.get("by_chat"), dict) else {}
+    disk_sess = cp.get("sessions") if isinstance(cp.get("sessions"), dict) else {}
+    for chat_key, sid in disk_by.items():
+        if not isinstance(sid, str):
+            continue
+        blob = disk_sess.get(sid)
+        if not isinstance(blob, dict):
+            continue
+        if chat_key not in mem["by_chat"]:
+            mem["by_chat"][chat_key] = sid
+            mem["sessions"][sid] = json.loads(json.dumps(blob))
+
+
 def save_state(path: Path, state: dict[str, Any]) -> None:
     dump_json(path, state)
+
+
+# #region agent log
+_AGENT_DEBUG_LOG_PATH = Path("/Users/vishnevsky/Desktop/голосовое управление/.cursor/debug-06a7fa.log")
+
+
+def _agent_dbg(
+    hypothesis_id: str,
+    location: str,
+    message: str,
+    data: dict[str, Any],
+    *,
+    run_id: str = "pre",
+) -> None:
+    try:
+        line = json.dumps(
+            {
+                "sessionId": "06a7fa",
+                "timestamp": int(time.time() * 1000),
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data,
+                "runId": run_id,
+            },
+            ensure_ascii=False,
+        )
+        _AGENT_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _AGENT_DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except Exception:
+        pass
+
+
+# #endregion
 
 
 def telegram_request(token: str, method: str, payload: dict[str, Any] | None = None) -> Any:
@@ -456,16 +522,177 @@ def telegram_request(token: str, method: str, payload: dict[str, Any] | None = N
     return parsed.get("result")
 
 
-def send_message(config: BotConfig, chat_id: int, text: str) -> Any:
-    return telegram_request(
-        config.bot_token,
-        "sendMessage",
-        {
-            "chat_id": chat_id,
-            "text": text[:4000],
-            "disable_web_page_preview": True,
-        },
-    )
+def send_message(
+    config: BotConfig,
+    chat_id: int,
+    text: str,
+    reply_markup: dict[str, Any] | None = None,
+) -> Any:
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "text": text[:4000],
+        "disable_web_page_preview": True,
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    return telegram_request(config.bot_token, "sendMessage", payload)
+
+
+def answer_callback_query(config: BotConfig, callback_query_id: str, text: str | None = None) -> Any:
+    req: dict[str, Any] = {"callback_query_id": callback_query_id}
+    if text:
+        req["text"] = text[:190]
+    return telegram_request(config.bot_token, "answerCallbackQuery", req)
+
+
+def preflight_root(state: dict[str, Any]) -> dict[str, Any]:
+    root = state.setdefault("capture_preflight", {})
+    root.setdefault("by_chat", {})
+    root.setdefault("sessions", {})
+    return root
+
+
+def preflight_get_session(state: dict[str, Any], chat_id: int) -> dict[str, Any] | None:
+    root = preflight_root(state)
+    sid = root["by_chat"].get(str(chat_id))
+    if not sid:
+        return None
+    sess = root["sessions"].get(sid)
+    return sess if isinstance(sess, dict) else None
+
+
+def preflight_session_id_for_chat(state: dict[str, Any], chat_id: int) -> str | None:
+    sid = preflight_root(state)["by_chat"].get(str(chat_id))
+    return str(sid) if sid else None
+
+
+def preflight_clear_chat(state: dict[str, Any], chat_id: int) -> None:
+    root = preflight_root(state)
+    sid = root["by_chat"].pop(str(chat_id), None)
+    if sid:
+        root["sessions"].pop(str(sid), None)
+
+
+def preflight_start_session(
+    state: dict[str, Any],
+    *,
+    chat_id: int,
+    user_id: int,
+    sender: str,
+    bucket: str,
+    user_text: str,
+    capture_text: str,
+    extra_meta: dict[str, Any] | None,
+) -> tuple[str, dict[str, Any]]:
+    root = preflight_root(state)
+    preflight_clear_chat(state, chat_id)
+    sid = secrets.token_hex(6)
+    root["by_chat"][str(chat_id)] = sid
+    session: dict[str, Any] = {
+        "session_id": sid,
+        "chat_id": chat_id,
+        "user_id": user_id,
+        "sender": sender,
+        "bucket": bucket,
+        "extra_meta": extra_meta,
+        "turns": [{"role": "user", "content": user_text}],
+        "phase": "clarifying",
+        "capture_text_for_log": capture_text,
+    }
+    root["sessions"][sid] = session
+    return sid, session
+
+
+def preflight_inline_keyboard(session_id: str) -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "Записать в Obsidian", "callback_data": f"s:{session_id}"},
+                {"text": "Удалить", "callback_data": f"x:{session_id}"},
+            ]
+        ]
+    }
+
+
+def process_callback_query(config: BotConfig, callback: dict[str, Any], state: dict[str, Any]) -> None:
+    cq_id = str(callback.get("id") or "")
+    data = str(callback.get("data") or "")
+    from_user = callback.get("from") or {}
+    user_id = int(from_user.get("id") or 0)
+    msg = callback.get("message") or {}
+    chat = msg.get("chat") or {}
+    chat_id = int(chat.get("id") or 0)
+    root = preflight_root(state)
+    if not data or len(data) < 3 or data[1] != ":":
+        answer_callback_query(config, cq_id, text="Неизвестная кнопка.")
+        return
+    op, sid = data[0], data[2:]
+    session = root["sessions"].get(sid)
+    if not isinstance(session, dict) or int(session.get("chat_id", 0)) != chat_id:
+        answer_callback_query(config, cq_id, text="Сессия устарела. Отправь текст заново.")
+        return
+    if int(session.get("user_id", 0)) != user_id:
+        answer_callback_query(config, cq_id, text="Это не твоя кнопка.")
+        return
+    if op == "x":
+        preflight_clear_chat(state, chat_id)
+        answer_callback_query(config, cq_id, text="Удалено.")
+        send_message(config, chat_id, "Ок, в vault не записываю.")
+        return
+    if op != "s":
+        answer_callback_query(config, cq_id, text="?")
+        return
+    draft = str(session.get("draft_vault_text") or "").strip()
+    if not draft:
+        answer_callback_query(config, cq_id, text="Нет текста.")
+        return
+    bucket = str(session.get("bucket") or "signal")
+    sender = str(session.get("sender") or "unknown")
+    extra_meta = session.get("extra_meta")
+    if not isinstance(extra_meta, dict):
+        extra_meta = None
+    capture_display = str(session.get("capture_text_for_log") or draft)
+    try:
+        captured_path = append_capture_entry(
+            config,
+            bucket=bucket,
+            direction="incoming",
+            chat_id=chat_id,
+            sender=sender,
+            text=capture_display,
+            extra_meta=extra_meta,
+        )
+        routed_signal: dict[str, Any] | None = None
+        if bucket == "signal":
+            try:
+                routed_signal = signal_router.route_signal(
+                    vault=config.vault_path,
+                    text=draft,
+                    source_path=captured_path,
+                    memory_path=config.vault_path / config.memory_path,
+                    timezone_name=config.timezone_name,
+                    routing_settings=config.routing_settings,
+                    llm_config=config.llm_config,
+                )
+                if (
+                    routed_signal
+                    and routed_signal.get("routed")
+                    and routed_signal.get("published", True)
+                ):
+                    maintenance = maintenance_state(state)
+                    maintenance["new_signal_count"] = int(maintenance.get("new_signal_count", 0)) + 1
+            except Exception as exc:
+                print(f"[signal-router] {exc}", file=sys.stderr)
+        preflight_clear_chat(state, chat_id)
+        answer_callback_query(config, cq_id, text="Записано.")
+        if routed_signal and routed_signal.get("routed"):
+            reply = format_routed_signal_message(routed_signal)
+        else:
+            reply = "Записал в vault."
+        send_message(config, chat_id, reply)
+    except Exception as exc:
+        answer_callback_query(config, cq_id, text="Ошибка записи.")
+        send_message(config, chat_id, f"Не смог записать: {exc}")
 
 
 def encode_multipart_formdata(fields: dict[str, Any], file_field: str, file_path: Path) -> tuple[bytes, str]:
@@ -534,7 +761,7 @@ def get_updates(config: BotConfig, offset: int) -> list[dict[str, Any]]:
         {
             "offset": offset,
             "timeout": 25,
-            "allowed_updates": ["message"],
+            "allowed_updates": ["message", "callback_query"],
         },
     )
     return [item for item in result if isinstance(item, dict)]
@@ -604,6 +831,18 @@ def extract_audio_attachment(message: dict[str, Any]) -> MediaAttachment | None:
                 file_name=str(document.get("file_name")) if document.get("file_name") else None,
                 caption=caption,
             )
+
+    video_note = message.get("video_note")
+    if isinstance(video_note, dict) and video_note.get("file_id"):
+        return MediaAttachment(
+            kind="video-note",
+            file_id=str(video_note["file_id"]),
+            file_unique_id=str(video_note.get("file_unique_id") or video_note["file_id"]),
+            duration_seconds=int(video_note["duration"]) if video_note.get("duration") is not None else None,
+            mime_type="video/mp4",
+            file_name=None,
+            caption=caption,
+        )
     return None
 
 
@@ -695,7 +934,12 @@ def transcribe_attachment(config: BotConfig, attachment: MediaAttachment) -> str
 
     suffix = Path(attachment.file_name or "").suffix
     if not suffix:
-        suffix = ".ogg" if attachment.kind == "voice" else ".audio"
+        if attachment.kind == "voice":
+            suffix = ".ogg"
+        elif attachment.kind == "video-note":
+            suffix = ".mp4"
+        else:
+            suffix = ".audio"
     safe_stem = re.sub(r"[^a-zA-Z0-9_-]+", "-", attachment.file_unique_id).strip("-") or "telegram-audio"
 
     with tempfile.TemporaryDirectory(prefix="telegram-voice-download-") as temp_dir:
@@ -831,16 +1075,27 @@ def format_transcript_for_capture(transcript: str) -> str:
     return transcript.strip()
 
 
-def wrap_voice_response(config: BotConfig, response: str | dict[str, Any]) -> str | dict[str, Any]:
+def wrap_voice_response(
+    config: BotConfig,
+    response: str | dict[str, Any],
+    *,
+    source_kind: str = "voice",
+) -> str | dict[str, Any]:
     if not isinstance(response, str):
         return response
+    label = {
+        "voice": "Голосовое",
+        "video-note": "Кружок (видеосообщение)",
+        "audio": "Аудио",
+        "audio-document": "Аудиофайл",
+    }.get(source_kind, "Аудио")
     if response == config.acknowledgement:
-        return "Голосовое разобрал. " + response
+        return f"{label} разобрал. " + response
     if response == config.noise_acknowledgement:
-        return "Голосовое разобрал. " + response
+        return f"{label} разобрал. " + response
     if response.startswith("Logged "):
-        return "Голосовое разобрал.\n\n" + response
-    return "Голосовое разобрал.\n\n" + response
+        return f"{label} разобрал.\n\n" + response
+    return f"{label} разобрал.\n\n" + response
 
 
 def ensure_memory_file(config: BotConfig) -> Path:
@@ -931,23 +1186,127 @@ def looks_like_signal_text(normalized: str, words: int, text: str) -> bool:
 _VAULT_QUESTION_PHRASES = [
     "что по ", "что у меня по ", "что есть по ", "расскажи про ",
     "расскажи о ", "найди ", "поищи ", "напомни про ", "напомни о ",
-    "что я писал про ", "что я писал о ", "что было по ",
+    "напомни что ", "напомни как ", "что я писал про ", "что я писал о ",
+    "что было по ", "вспомни про ", "вспомни о ",
     "what about ", "tell me about ", "find ", "search ",
     "what do i have on ", "what did i write about ",
 ]
 
+_VAULT_QUESTION_PREFIXES = (
+    "вопрос:",
+    "вопрос ",
+    "q:",
+    "q ",
+    "ask:",
+    "ask ",
+)
+
+_WH_WORDS = frozenset(
+    {
+        "что",
+        "как",
+        "почему",
+        "где",
+        "когда",
+        "кто",
+        "сколько",
+        "зачем",
+        "какой",
+        "какая",
+        "какие",
+        "какое",
+        "каких",
+        "какому",
+        "чем",
+        "откуда",
+        "куда",
+        "what",
+        "how",
+        "why",
+        "where",
+        "when",
+        "who",
+        "which",
+        "whose",
+    }
+)
+
+_WH_BIGRAMS = frozenset(
+    {
+        "во что",
+        "на что",
+        "о чем",
+        "об чем",
+        "про что",
+        "для чего",
+        "из чего",
+        "с чего",
+    }
+)
+
+# Короткий small talk с вопросительным словом — не отправлять в поиск по vault.
+_VAULT_QUESTION_SMALLTALK = frozenset(
+    {
+        "how are you",
+        "how do you do",
+        "what is up",
+        "whats up",
+        "what's up",
+        "как дела",
+        "как ты",
+        "что нового",
+        "что как",
+    }
+)
+
+
+def _vault_question_words(lowered: str) -> list[str]:
+    raw = [w.strip("«»\"'") for w in lowered.split()]
+    return [w.rstrip("?.!,;:") for w in raw if w]
+
 
 def _looks_like_vault_question(lowered: str) -> bool:
+    if any(lowered.startswith(p) for p in _VAULT_QUESTION_PREFIXES):
+        return True
     if any(lowered.startswith(p) for p in _VAULT_QUESTION_PHRASES):
         return True
     if "?" in lowered and any(w in lowered for w in ["заметк", "vault", "идеи", "проект", "тем"]):
         return True
+    if "?" not in lowered:
+        return False
+    words = _vault_question_words(lowered)
+    if len(words) < 3:
+        return False
+    joined3 = " ".join(words[:3])
+    joined4 = " ".join(words[:4]) if len(words) >= 4 else joined3
+    if joined3 in _VAULT_QUESTION_SMALLTALK or joined4 in _VAULT_QUESTION_SMALLTALK:
+        return False
+    first = words[0]
+    if first in _WH_WORDS:
+        return True
+    if len(words) >= 2 and f"{words[0]} {words[1]}" in _WH_BIGRAMS:
+        return True
+    head = words[:4]
+    if any(w in _WH_WORDS for w in head):
+        return True
     return False
 
 
+def _strip_vault_question_markers(text: str) -> str:
+    t = text.strip()
+    low = t.casefold()
+    for p in _VAULT_QUESTION_PREFIXES:
+        if low.startswith(p):
+            return t[len(p) :].strip()
+    return t
+
+
 def answer_vault_question(config: BotConfig, question: str) -> str:
+    if not config.llm_config.vault_questions:
+        return "Вопросы по заметкам отключены в конфиге (`llm.vault_questions`). Включи или используй только маршрутизацию сигналов."
     if not ollama_bridge.ollama_available(config.llm_config):
         return "LLM недоступна. Запусти Ollama (`ollama serve`) и попробуй снова."
+    question = _strip_vault_question_markers(question)
     tokens = signal_router.meaningful_tokens(question)
     if not tokens:
         return "Не понял вопрос. Переформулируй?"
@@ -981,7 +1340,7 @@ def answer_vault_question(config: BotConfig, question: str) -> str:
     return f"Нашёл заметки по теме: {titles}. Ollama не смогла сформировать ответ."
 
 
-def plain_text_query_kind(text: str) -> str | None:
+def plain_text_query_kind(text: str, config: BotConfig | None = None) -> str | None:
     lowered = text.casefold()
     if lowered.startswith("approve ") or lowered.startswith("подтверди "):
         return "approve"
@@ -1014,6 +1373,8 @@ def plain_text_query_kind(text: str) -> str | None:
     if any(has_phrase(lowered, token) for token in ["sync", "синхронизируй", "проверь чат", "проверь сообщения", "check chat", "check messages"]):
         return "sync"
     if _looks_like_vault_question(lowered):
+        if config is not None and not config.llm_config.vault_questions:
+            return None
         return "ask"
     if any(has_phrase(lowered, token) for token in ["graph", "граф", "mind map", "mindmap", "карта", "связи"]):
         return "graph"
@@ -1038,7 +1399,7 @@ def classify_incoming_text(config: BotConfig, text: str) -> IntakeDecision:
         return IntakeDecision(bucket="signal", capture=True, reason="forced-signal")
     if detect_tracking_payload(text) is not None:
         return IntakeDecision(bucket="tracking", capture=False, reason="tracking")
-    if plain_text_query_kind(text) is not None:
+    if plain_text_query_kind(text, config) is not None:
         return IntakeDecision(bucket="noise", capture=False, reason="query")
     if normalized in LOW_SIGNAL_EXACT:
         return IntakeDecision(bucket="noise", capture=config.capture_noise, reason="low-signal-exact")
@@ -2123,13 +2484,15 @@ def looks_like_low_signal_local_note(title: str, text: str) -> bool:
 
 
 def processed_archive_path(config: BotConfig, source_path: Path) -> Path:
+    """Archive processed notes under `<top>/_Processed/<filename>` without mirroring
+    Ideas/Inbox subfolders — keeps the vault tree easier to scan in Obsidian."""
     rel_path = source_path.relative_to(config.vault_path)
     parts = rel_path.parts
     if not parts:
         raise BotError(f"Cannot archive source outside vault: {source_path}")
-    root = Path(parts[0]) / "_Processed"
-    suffix = Path(*parts[1:]) if len(parts) > 1 else Path(source_path.name)
-    return unique_destination(config.vault_path / root / suffix)
+    top = parts[0]
+    archive_dir = config.vault_path / top / "_Processed"
+    return unique_destination(archive_dir / source_path.name)
 
 
 def archive_local_source_note(config: BotConfig, source_path: Path, *, status: str, note_kind: str, details: dict[str, Any] | None = None) -> Path:
@@ -2796,6 +3159,7 @@ def help_message() -> str:
         "/ask <вопрос> - ask a question about your vault notes\n"
         "/sync - check chat and process any pending messages\n"
         "/help - show this message\n\n"
+        "Plain-text vault Q&A: отправь вопрос с `?` (например «что я писал про дизайн?») или с префиксом `вопрос:` / `q:` / `ask:`.\n\n"
         "Examples: `gym: bench 80x5x3`, `food: 2200 kcal 160 protein`, `skill: writing | drafted article`, `weight 82.4`, `sleep 7.5`.\n"
         "Voice messages are supported too: the bot will transcribe them and then route the transcript through the same Obsidian intake.\n"
         "Photos and text documents are supported too: the bot will OCR/analyze them and route the extracted text into Obsidian.\n"
@@ -2804,7 +3168,7 @@ def help_message() -> str:
 
 
 def respond_to_plain_text(config: BotConfig, text: str) -> str | dict[str, Any]:
-    intent = plain_text_query_kind(text)
+    intent = plain_text_query_kind(text, config)
     if intent == "ask":
         return answer_vault_question(config, text)
     if intent == "approve":
@@ -2942,12 +3306,182 @@ def check_authorized(config: BotConfig, chat_id: int) -> bool:
     return chat_id in config.allowed_chat_ids
 
 
+def preflight_apply_voice_wrap(
+    config: BotConfig,
+    body: str,
+    attachment: MediaAttachment | None,
+    source_kind: str,
+) -> str:
+    if attachment is None or source_kind not in {"voice", "audio", "audio-document", "video-note"}:
+        return body
+    wrapped = wrap_voice_response(config, body, source_kind=source_kind)
+    return wrapped if isinstance(wrapped, str) else body
+
+
+def preflight_run_llm_reply(
+    config: BotConfig,
+    chat_id: int,
+    session: dict[str, Any],
+    attachment: MediaAttachment | None,
+    source_kind: str,
+) -> None:
+    turns = session.get("turns") or []
+    raw = ollama_bridge.llm_capture_preflight_turn(
+        config.llm_config,
+        bucket=str(session.get("bucket", "signal")),
+        turns=[dict(t) for t in turns],
+    )
+    if raw is None:
+        merged = "\n\n".join(
+            str(t.get("content", "")).strip()
+            for t in turns
+            if t.get("role") == "user" and str(t.get("content", "")).strip()
+        ).strip()
+        if not merged:
+            merged = str(turns[-1].get("content", "")).strip()
+        raw = {"action": "finalize", "summary": merged or "—", "vault_text": merged or "—"}
+    if raw["action"] == "clarify":
+        reply = str(raw["reply"])
+        reply = preflight_apply_voice_wrap(config, reply, attachment, source_kind)
+        send_message(config, chat_id, reply)
+        turns.append({"role": "assistant", "content": reply})
+        session["turns"] = turns
+        return
+    summary = str(raw["summary"])
+    vault_text = str(raw["vault_text"])
+    session["draft_vault_text"] = vault_text
+    session["phase"] = "awaiting_confirm"
+    sid = str(session["session_id"])
+    summary = preflight_apply_voice_wrap(config, summary, attachment, source_kind)
+    send_message(
+        config,
+        chat_id,
+        summary,
+        reply_markup=preflight_inline_keyboard(sid),
+    )
+
+
+def preflight_continue(
+    config: BotConfig,
+    message: dict[str, Any],
+    state: dict[str, Any],
+    session: dict[str, Any],
+    *,
+    text: str,
+    capture_text: str,
+    extra_meta: dict[str, Any] | None,
+    sender: str,
+    attachment: MediaAttachment | None,
+    source_kind: str,
+) -> None:
+    chat_id = int((message.get("chat") or {}).get("id"))
+    if session.get("phase") == "awaiting_confirm":
+        send_message(
+            config,
+            chat_id,
+            "Сначала нажми «Записать в Obsidian» или «Удалить» под саммари выше.",
+        )
+        return
+    session.setdefault("turns", []).append({"role": "user", "content": text})
+    session["sender"] = sender
+    session["capture_text_for_log"] = capture_text
+    if extra_meta is not None:
+        session["extra_meta"] = extra_meta
+    preflight_run_llm_reply(config, chat_id, session, attachment, source_kind)
+
+
+def _telegram_user_visible_text(msg: dict[str, Any]) -> str:
+    """Текст сообщения или подпись к медиа (уточнения бота часто приходят как caption)."""
+    if not isinstance(msg, dict):
+        return ""
+    return str(msg.get("text") or msg.get("caption") or "").strip()
+
+
+def preflight_try_resume_from_reply_to_bot(
+    config: BotConfig,
+    message: dict[str, Any],
+    state: dict[str, Any],
+    *,
+    chat_id: int,
+    user_id: int,
+    sender: str,
+    text: str,
+    attachment: MediaAttachment | None,
+    source_kind: str,
+) -> bool:
+    """Короткий ответ реплаем на сообщение бота: восстанавливаем thread для preflight, если сессия в state потеряна."""
+    if not config.llm_config.enabled or source_kind != "text" or text.startswith("/"):
+        return False
+    rm = message.get("reply_to_message")
+    if not isinstance(rm, dict):
+        return False
+    if not (rm.get("from") or {}).get("is_bot"):
+        return False
+    if word_count(text) > 6:
+        return False
+    bot_piece = _telegram_user_visible_text(rm)
+    if not bot_piece:
+        # #region agent log
+        _agent_dbg(
+            "R2",
+            "telegram_obsidian_bot.py:preflight_try_resume_from_reply_to_bot",
+            "resume skip: no bot text/caption",
+            {"chat_id": chat_id, "rm_keys": sorted(str(k) for k in rm.keys())},
+        )
+        # #endregion
+        return False
+    parent = rm.get("reply_to_message")
+    prior_user: str | None = None
+    if isinstance(parent, dict) and not (parent.get("from") or {}).get("is_bot"):
+        prior_user = _telegram_user_visible_text(parent) or None
+    turns: list[dict[str, Any]] = []
+    if prior_user:
+        turns.append({"role": "user", "content": prior_user})
+    turns.append({"role": "assistant", "content": bot_piece})
+    turns.append({"role": "user", "content": text})
+    first_user = prior_user or ""
+    norm = normalize_capture_text(first_user) if first_user else ""
+    bucket = (
+        "personal"
+        if norm and any(norm.startswith(prefix) for prefix in PERSONAL_PREFIXES)
+        else "signal"
+    )
+    user_utterances = [t["content"] for t in turns if t.get("role") == "user"]
+    capture_blob = "\n\n".join(u for u in user_utterances if u.strip())
+    preflight_start_session(
+        state,
+        chat_id=chat_id,
+        user_id=user_id,
+        sender=sender,
+        bucket=bucket,
+        user_text=user_utterances[0] if user_utterances else text,
+        capture_text=capture_blob or text,
+        extra_meta=None,
+    )
+    sess = preflight_get_session(state, chat_id)
+    if sess is None:
+        return False
+    sess["turns"] = turns
+    # #region agent log
+    _agent_dbg(
+        "R1",
+        "telegram_obsidian_bot.py:preflight_try_resume_from_reply_to_bot",
+        "resume preflight from reply-to-bot",
+        {"chat_id": chat_id, "turns": len(turns), "bucket": bucket, "has_prior_user": prior_user is not None},
+    )
+    # #endregion
+    preflight_run_llm_reply(config, chat_id, sess, attachment, source_kind)
+    return True
+
+
 def process_message(config: BotConfig, message: dict[str, Any], state: dict[str, Any] | None = None) -> None:
     chat = message.get("chat") or {}
     chat_id = int(chat.get("id"))
     if not check_authorized(config, chat_id):
         return
 
+    st: dict[str, Any] = state if state is not None else {}
+    user_id = int((message.get("from") or {}).get("id") or 0)
     sender = format_sender(message)
     text = str(message.get("text") or "").strip()
     source_kind = "text"
@@ -2978,6 +3512,14 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
         else:
             attachment = extract_visual_attachment(message)
             if attachment is None:
+                send_message(
+                    config,
+                    chat_id,
+                    "Сообщение без текста, и я не вижу поддерживаемого вложения.\n\n"
+                    "Поддерживается: обычное голосовое, аудиофайл, видеокружок, фото или PDF. "
+                    "Если отправлял кружок — теперь он тоже обрабатывается (нужны `whisper` и ffmpeg внутри whisper). "
+                    "Проверь, что в конфиге `voice.enabled: true` и на машине с ботом установлен CLI `whisper`.",
+                )
                 return
             try:
                 text = analyze_visual_attachment(config, attachment).strip()
@@ -2999,7 +3541,99 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
                 "analysis_model": "vision-ocr" if attachment.kind != "pdf-document" else "pdftotext",
             }
 
+    active = preflight_get_session(st, chat_id) if state is not None else None
+    # #region agent log
+    _agent_dbg(
+        "H5",
+        "telegram_obsidian_bot.py:process_message:active_check",
+        "preflight active",
+        {
+            "chat_id": chat_id,
+            "has_active": active is not None,
+            "phase": str(active.get("phase", "")) if active else None,
+            "has_reply_to_bot": isinstance(message.get("reply_to_message"), dict)
+            and (message.get("reply_to_message") or {}).get("from", {}).get("is_bot"),
+        },
+    )
+    # #endregion
+    if active is not None:
+        if source_kind == "text" and text.startswith("/"):
+            preflight_clear_chat(st, chat_id)
+        else:
+            preflight_continue(
+                config,
+                message,
+                st,
+                active,
+                text=text,
+                capture_text=capture_text,
+                extra_meta=extra_meta,
+                sender=sender,
+                attachment=attachment,
+                source_kind=source_kind,
+            )
+            return
+
+    if state is not None and preflight_try_resume_from_reply_to_bot(
+        config,
+        message,
+        st,
+        chat_id=chat_id,
+        user_id=user_id,
+        sender=sender,
+        text=text,
+        attachment=attachment,
+        source_kind=source_kind,
+    ):
+        return
+
     decision = classify_incoming_text(config, text)
+
+    ptq = plain_text_query_kind(text, config)
+    trk = detect_tracking_payload(text)
+    use_preflight = (
+        state is not None
+        and config.llm_config.enabled
+        and decision.capture
+        and decision.bucket in ("signal", "personal")
+        and not (source_kind == "text" and text.startswith("/"))
+        and ptq is None
+        and trk is None
+    )
+    # #region agent log
+    _agent_dbg(
+        "H1,H3",
+        "telegram_obsidian_bot.py:process_message:post_classify",
+        "classify+preflight gate",
+        {
+            "chat_id": chat_id,
+            "text_preview": text[:80],
+            "w": word_count(text),
+            "bucket": decision.bucket,
+            "capture": decision.capture,
+            "reason": decision.reason,
+            "use_preflight": use_preflight,
+            "llm_on": bool(config.llm_config.enabled),
+        },
+    )
+    # #endregion
+
+    if use_preflight:
+        preflight_start_session(
+            st,
+            chat_id=chat_id,
+            user_id=user_id,
+            sender=sender,
+            bucket=decision.bucket,
+            user_text=text,
+            capture_text=capture_text,
+            extra_meta=extra_meta,
+        )
+        sess_new = preflight_get_session(st, chat_id)
+        if sess_new is not None:
+            preflight_run_llm_reply(config, chat_id, sess_new, attachment, source_kind)
+        return
+
     if decision.capture:
         captured_path = append_capture_entry(
             config,
@@ -3021,7 +3655,12 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
                     routing_settings=config.routing_settings,
                     llm_config=config.llm_config,
                 )
-                if state is not None and routed_signal and routed_signal.get("routed") and routed_signal.get("published", True):
+                if (
+                    state is not None
+                    and routed_signal
+                    and routed_signal.get("routed")
+                    and routed_signal.get("published", True)
+                ):
                     maintenance = maintenance_state(state)
                     maintenance["new_signal_count"] = int(maintenance.get("new_signal_count", 0)) + 1
             except Exception as exc:
@@ -3051,7 +3690,7 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
                 note_path=decision.bucket,
             )
             response = smart if smart else config.acknowledgement
-        elif (intent := plain_text_query_kind(text)) is not None:
+        elif (intent := plain_text_query_kind(text, config)) is not None:
             if intent == "sync" and state is not None:
                 state["sync_requested"] = True
             response = respond_to_plain_text(config, text)
@@ -3060,8 +3699,8 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
         else:
             response = config.acknowledgement
 
-    if attachment is not None and source_kind in {"voice", "audio", "audio-document"}:
-        response = wrap_voice_response(config, response)
+    if attachment is not None and source_kind in {"voice", "audio", "audio-document", "video-note"}:
+        response = wrap_voice_response(config, response, source_kind=source_kind)
     elif attachment is not None and source_kind != "text":
         response = wrap_visual_response(config, response, attachment)
 
@@ -3312,8 +3951,12 @@ def run_bot(config_path: Path) -> int:
         offset = int(state.get("last_update_id", 0)) + 1
         updates = get_updates(config, offset)
         for update in updates:
+            refresh_capture_preflight_from_disk(state, config.state_path)
             update_id = int(update.get("update_id", 0))
             state["last_update_id"] = max(int(state.get("last_update_id", 0)), update_id)
+            callback = update.get("callback_query")
+            if isinstance(callback, dict):
+                process_callback_query(config, callback, state)
             message = update.get("message")
             if isinstance(message, dict):
                 process_message(config, message, state=state)
@@ -3324,8 +3967,12 @@ def run_bot(config_path: Path) -> int:
             offset = int(state.get("last_update_id", 0)) + 1
             extra = get_updates(config, offset)
             for update in extra:
+                refresh_capture_preflight_from_disk(state, config.state_path)
                 update_id = int(update.get("update_id", 0))
                 state["last_update_id"] = max(int(state.get("last_update_id", 0)), update_id)
+                callback = update.get("callback_query")
+                if isinstance(callback, dict):
+                    process_callback_query(config, callback, state)
                 message = update.get("message")
                 if isinstance(message, dict):
                     process_message(config, message, state=state)
@@ -3379,6 +4026,22 @@ def command_once(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_notify(args: argparse.Namespace) -> int:
+    """Одноразовая отправка в Telegram тем же ботом (без долгого polling)."""
+    config = load_config(Path(args.config).expanduser().resolve())
+    chat_id = args.chat_id
+    if chat_id is None:
+        if config.default_chat_id is None:
+            raise BotError("Нет chat_id: задай default_chat_id в JSON или передай --chat-id.")
+        chat_id = config.default_chat_id
+    text = str(args.text or "").strip() or (
+        "Пинг от obsidian-head-agent: обновления в коде (голос/кружки) уже в репозитории. "
+        "Перезапусти бота на Mac, если ещё не сделал — тогда голос снова пойдёт в Obsidian."
+    )
+    send_message(config, int(chat_id), text)
+    return 0
+
+
 def command_sanitize(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser().resolve())
     date_filter = args.date
@@ -3405,6 +4068,15 @@ def build_parser() -> argparse.ArgumentParser:
     sanitize_parser.add_argument("config", help="Path to the Telegram bot JSON config")
     sanitize_parser.add_argument("--date", help="Optional YYYY-MM-DD filter, or `today`.")
     sanitize_parser.set_defaults(func=command_sanitize)
+
+    notify_parser = subparsers.add_parser(
+        "notify",
+        help="Send one message to default_chat_id (or --chat-id) using the same bot token as `run`.",
+    )
+    notify_parser.add_argument("config", help="Path to the Telegram bot JSON config")
+    notify_parser.add_argument("--chat-id", type=int, default=None, dest="chat_id", help="Override Telegram chat id")
+    notify_parser.add_argument("--text", help="Message text (default: short deploy ping in Russian)")
+    notify_parser.set_defaults(func=command_notify)
 
     return parser
 

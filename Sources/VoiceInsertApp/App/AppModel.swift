@@ -265,12 +265,14 @@ final class AppModel: ObservableObject {
 
         guard permissions.microphone == .authorized else {
             statusMessage = "Microphone access is required."
+            NSSound.beep()
             Task { await requestPermissions() }
             return
         }
 
         guard permissions.speech == .authorized else {
             statusMessage = "Speech recognition access is required."
+            NSSound.beep()
             Task { await requestPermissions() }
             return
         }
@@ -406,7 +408,8 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(language.rawValue, forKey: DefaultsKey.dictationLanguage)
         speechService.cancelSession()
         prewarmSpeechPipeline()
-        statusMessage = "Dictation language set to \(language.title)."
+        scheduleMicrophoneRoutePrewarmFromIdleState()
+        statusMessage = "Язык распознавания: \(language.title) (\(language.speechLocale.identifier))."
     }
 
     func completeInitialSetup() {
@@ -577,6 +580,7 @@ final class AppModel: ObservableObject {
 
         if permissions.microphone == .authorized, permissions.speech == .authorized {
             prewarmSpeechPipeline()
+            scheduleMicrophoneRoutePrewarmFromIdleState()
         }
     }
 
@@ -595,6 +599,11 @@ final class AppModel: ObservableObject {
 
     private func prewarmSpeechPipeline() {
         speechService.prewarm(locale: dictationLocale)
+    }
+
+    private func scheduleMicrophoneRoutePrewarmFromIdleState() {
+        guard phase == .idle else { return }
+        speechService.scheduleMicrophoneRoutePrewarmIfNeeded()
     }
 
     private var dictationLocale: Locale {
@@ -793,12 +802,15 @@ final class AppModel: ObservableObject {
     }
 
     private static func loadDictationLanguage() -> DictationLanguage {
-        guard let rawValue = UserDefaults.standard.string(forKey: DefaultsKey.dictationLanguage),
-              let language = DictationLanguage(rawValue: rawValue) else {
-            return .russian
+        if let rawValue = UserDefaults.standard.string(forKey: DefaultsKey.dictationLanguage),
+           let language = DictationLanguage(rawValue: rawValue) {
+            return language
         }
-
-        return language
+        if let first = Locale.preferredLanguages.first,
+           first.hasPrefix("en") {
+            return .english
+        }
+        return .russian
     }
 
     private static func loadRequiresInitialSetup() -> Bool {

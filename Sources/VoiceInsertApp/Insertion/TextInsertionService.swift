@@ -123,6 +123,9 @@ final class TextInsertionService {
         if let focusedElement,
            shouldSkipDirectAccessibilityInsert(for: target, focusedElement: focusedElement) {
             appendDebugTrace("direct_ax_insert=skipped_placeholder_backed")
+        } else if focusedElement != nil,
+                  shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(target) {
+            appendDebugTrace("direct_ax_insert=skipped_paste_only_bundle")
         } else if let focusedElement,
                   try insertDirectly(
                     text: trimmedText,
@@ -279,6 +282,22 @@ final class TextInsertionService {
         return rawValue
     }
 
+    /// Web/HTML composers (e.g. ChatGPT in Atlas) may apply AX `kAXValue` and also treat the change as user input, duplicating text. Paste-only avoids that.
+    private func shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(_ target: TextInsertionTarget?) -> Bool {
+        guard let id = target?.frontmostBundleIdentifier else { return false }
+        return Self.isPasteOnlyInsertionBundle(id)
+    }
+
+    /// After Cmd+V the field can update in the web view before AX `kAXValue` reflects it, so verification returns false and the menu “Paste” fallback runs again → duplicated text.
+    private func shouldSkipMenuPasteRetryAfterCmdV(for target: TextInsertionTarget?) -> Bool {
+        guard let id = target?.frontmostBundleIdentifier else { return false }
+        return Self.isPasteOnlyInsertionBundle(id)
+    }
+
+    private static func isPasteOnlyInsertionBundle(_ id: String) -> Bool {
+        pasteOnlyInsertionBundleIdentifiers.contains(id) || id.hasPrefix("com.openai.atlas.")
+    }
+
     private func shouldSkipDirectAccessibilityInsert(
         for target: TextInsertionTarget?,
         focusedElement: AXUIElement
@@ -342,10 +361,17 @@ final class TextInsertionService {
                 return true
             }
 
-            if verification == false, performPasteMenuAction(on: targetPID) {
-                let menuVerification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
-                snapshot.restore()
-                return menuVerification ?? false
+            if verification == false {
+                if shouldSkipMenuPasteRetryAfterCmdV(for: target) {
+                    appendDebugTrace("pasteboard_menu_retry=skipped_ax_lag_single_shot")
+                    snapshot.restore()
+                    return true
+                }
+                if performPasteMenuAction(on: targetPID) {
+                    let menuVerification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
+                    snapshot.restore()
+                    return menuVerification ?? false
+                }
             }
 
             if verification == nil {
@@ -1145,6 +1171,10 @@ final class TextInsertionService {
         return id == "com.openai.codex" || id.hasPrefix("com.todesktop.")
     }
 
+    private static let pasteOnlyInsertionBundleIdentifiers: Set<String> = [
+        "com.openai.atlas"
+    ]
+
     private static let unverifiablePasteBundleIdentifiers: Set<String> = [
         "com.apple.Safari",
         "com.google.Chrome",
@@ -1155,7 +1185,8 @@ final class TextInsertionService {
         "com.vivaldi.Vivaldi",
         "com.kagi.kagimacOS",
         "com.operasoftware.Opera",
-        "com.operasoftware.OperaGX"
+        "com.operasoftware.OperaGX",
+        "com.openai.atlas"
     ]
 
     private static let placeholderAttributeNames = [

@@ -4,10 +4,11 @@ enum DictationLanguage: String, CaseIterable, Sendable {
     case russian
     case english
 
+    /// Подпись в переключателе (русский интерфейс + понятный English).
     var title: String {
         switch self {
         case .russian:
-            return "Russian"
+            return "Русский"
         case .english:
             return "English"
         }

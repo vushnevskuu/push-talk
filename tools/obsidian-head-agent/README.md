@@ -20,6 +20,17 @@ Python/Telegram tooling that works **on top of** Markdown files in your vault. I
 
 Paths inside the script are **relative to this folder**; moving the whole repo keeps it working.
 
+## Auto-start at login (macOS LaunchAgent)
+
+One command generates `~/Library/LaunchAgents/com.obsidian-head-agent.bot.plist` from your **current repo path**, enables **RunAtLoad** + **KeepAlive**, and reloads the job (so config / LLM changes apply after reinstall):
+
+```bash
+./tools/obsidian-head-agent/scripts/install_launchagent.sh
+```
+
+Logs: `~/Library/Logs/obsidian-head-agent-bot.log`.  
+Desktop shortcut `Obsidian Bot.command` still toggles load/unload of the same label.
+
 ## Git
 
 Only the example config and code are safe to push. Do not commit real Telegram config or state files.

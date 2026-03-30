@@ -170,7 +170,7 @@ Local markdown files can go through a similar intake flow too:
 - low-signal notes are archived into `_Processed`
 - useful notes are routed into permanent notes, themes, or drafts via the same `Signal` router
 - personal notes can be moved into `Inbox/Personal`
-- original markdown sources are archived into `_Processed` so the raw intake folders stay clean
+- original markdown sources are archived into `Voice Captures/_Processed/` (or `Inbox/_Processed/`, etc.) **by filename only**—no duplicate `Ideas/` / `Inbox/` tree under `_Processed`, so the vault sidebar stays simpler
 
 The bot can also run a maintenance pass automatically over existing vault notes:
 

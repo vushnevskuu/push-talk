@@ -90,6 +90,26 @@ struct FloatingPanelView: View {
                         Spacer(minLength: 0)
                     }
 
+                    HStack(spacing: 8) {
+                        Text("Язык")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+
+                        Picker("Язык", selection: Binding(
+                            get: { model.dictationLanguage },
+                            set: { model.updateDictationLanguage($0) }
+                        )) {
+                            ForEach(DictationLanguage.allCases, id: \.self) { lang in
+                                Text(lang.title).tag(lang)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .controlSize(.small)
+
+                        Spacer(minLength: 0)
+                    }
+                    .disabled(model.phase != .idle)
+
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(model.phase == .recording ? Color.red.opacity(0.16) : Color.blue.opacity(0.12))
@@ -120,8 +140,9 @@ struct FloatingPanelView: View {
             }
             .padding(18)
         }
-        .frame(width: 360, height: 220)
+        .frame(width: 360, height: 256)
         .animation(.spring(response: 0.22, dampingFraction: 0.90), value: model.phase)
         .animation(.spring(response: 0.22, dampingFraction: 0.90), value: model.liveTranscript)
+        .animation(.spring(response: 0.22, dampingFraction: 0.90), value: model.dictationLanguage)
     }
 }

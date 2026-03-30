@@ -52,8 +52,10 @@ If you say something like “idea go to the store” without a strict prefix, **
 ## Markdown file format
 
 - Encoding: **UTF-8**
-- Body: a level-1 heading `# …` (timestamp + category label, e.g. idea/task labels used in the app) followed by the **transcript text** (prefix markers may be stripped when classifying).
-- Filename: date/time stamp plus category label; on collisions, suffixes `2`, `3`, … are appended.
+- Body: a level-1 heading `# …` using a **human-readable date** (day + month name + year, Russian locale, e.g. `29 марта 2026 · Идея`) followed by the **transcript text** (prefix markers may be stripped when classifying).
+- Filename: starts with a **human-readable Russian date and time**, e.g. `17 марта 2026г., 15-06-07 Идея.md` (day + month name + year with «г.», then time with dashes so the name stays filesystem-safe), then the category label; on collisions, suffixes `2`, `3`, … are appended.
+
+If you use the optional `tools/obsidian-head-agent` bot, **local intake** moves processed captures into `Voice Captures/_Processed/` using **only the file name** (no extra `Ideas/` / `Inbox/` mirror under `_Processed`), so the sidebar stays flatter.
 
 Category **tags** from the internal model are **not** written into the file body—add tags with plugins or by hand if you need them.
 

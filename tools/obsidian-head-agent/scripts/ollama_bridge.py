@@ -7,6 +7,7 @@ callers can fall back to rule-based logic without try/except boilerplate.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass
 from typing import Any
@@ -21,29 +22,36 @@ class LLMConfig:
     enabled: bool = False
     provider: str = "ollama"
     base_url: str = "http://localhost:11434"
-    model: str = "qwen2.5:7b"
+    model: str = "llama3.2:3b"
     temperature: float = 0.3
     timeout_seconds: int = 30
     smart_classify: bool = True
     smart_reply: bool = True
     smart_summary: bool = True
     vault_questions: bool = True
+    #: Единый стиль заголовка «(Идея|Мысль|Пост) …» + развёрнутое тело при маршрутизации сигналов.
+    vault_note_format: bool = True
 
 
 def load_llm_config(raw: dict[str, Any] | None) -> LLMConfig:
     if not raw or not isinstance(raw, dict):
         return LLMConfig()
+    if "vault_note_format" in raw:
+        vault_fmt = bool(raw["vault_note_format"])
+    else:
+        vault_fmt = bool(raw.get("idea_elaborate", True))
     return LLMConfig(
         enabled=bool(raw.get("enabled", False)),
         provider=str(raw.get("provider", "ollama")),
         base_url=str(raw.get("base_url", "http://localhost:11434")).rstrip("/"),
-        model=str(raw.get("model", "qwen2.5:7b")),
+        model=str(raw.get("model", "llama3.2:3b")),
         temperature=float(raw.get("temperature", 0.3)),
         timeout_seconds=int(raw.get("timeout_seconds", 30)),
         smart_classify=bool(raw.get("smart_classify", True)),
         smart_reply=bool(raw.get("smart_reply", True)),
         smart_summary=bool(raw.get("smart_summary", True)),
         vault_questions=bool(raw.get("vault_questions", True)),
+        vault_note_format=vault_fmt,
     )
 
 
@@ -202,6 +210,188 @@ def llm_smart_reply(
         {"role": "system", "content": SYSTEM_PERSONA},
         {"role": "user", "content": prompt},
     ], temperature=0.5, max_tokens=150)
+
+
+ROUTED_NOTE_BRACKET_LABEL: dict[str, str] = {
+    "idea": "Идея",
+    "thought": "Мысль",
+    "post": "Пост",
+}
+
+_ROUTED_NOTE_HINTS: dict[str, tuple[str, str]] = {
+    "idea": (
+        "сырую идею (проект, фича, гипотеза)",
+        "идею чуть яснее и полнее, без воды",
+    ),
+    "thought": (
+        "сырую мысль или наблюдение",
+        "мысль и контекст яснее, можно чуть глубже",
+    ),
+    "post": (
+        "сырой набросок поста или публикации",
+        "содержание поста структурнее: тезисы, зачем читателю, без лишней воды",
+    ),
+}
+
+
+def _parse_routed_note_json(raw: str, bracket_label: str) -> tuple[str, str] | None:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```\s*$", "", text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", raw)
+        if not match:
+            return None
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(data, dict):
+        return None
+    title = str(data.get("title", "")).strip().replace("\n", " ")
+    body = str(data.get("body", "")).strip()
+    if not title or not body:
+        return None
+    prefix = f"({bracket_label})"
+    if not title.startswith(prefix):
+        title = f"{prefix} " + title.lstrip()
+    return title, body
+
+
+def llm_format_routed_note(cfg: LLMConfig, raw_text: str, kind: str) -> tuple[str, str] | None:
+    """Единый формат vault: заголовок «(Идея|Мысль|Пост) …» и развёрнутое тело."""
+    bracket = ROUTED_NOTE_BRACKET_LABEL.get(kind)
+    if bracket is None or not cfg.enabled or not cfg.vault_note_format:
+        return None
+    snippet = raw_text.strip()[:2000]
+    if not snippet:
+        return None
+    hint = _ROUTED_NOTE_HINTS.get(kind, ("текст пользователя", "содержание яснее"))
+    example_title = f"({bracket}) краткая слегка развёрнутая формулировка в стиле автора"
+    prompt = (
+        f"Пользователь записал {hint[0]} — возможны обрывки и разговорный стиль.\n\n"
+        "Верни ТОЛЬКО один JSON-объект без текста до или после, без markdown:\n"
+        f'{{"title":"{example_title}","body":"2–5 коротких абзацев: {hint[1]}"}}\n\n'
+        "Требования:\n"
+        f"- Поле title ОБЯЗАТЕЛЬНО начинается с «(" + bracket + ") » (скобки и пробел после метки).\n"
+        "- Сохраняй лексику и тон автора, избегай канцелярита.\n"
+        "- body не копирует title дословно.\n"
+        "- В JSON экранируй кавычки и переносы в body как \\n.\n\n"
+        f"Исходный текст:\n{snippet}"
+    )
+    result = ollama_chat(
+        cfg,
+        [
+            {
+                "role": "system",
+                "content": (
+                    "Ты умный редактор Obsidian-vault пользователя: приводишь входящие сигналы к одному "
+                    "согласованному формату (заголовок с меткой в скобках + развёрнутое тело). "
+                    "Отвечай только валидным JSON-объектом."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.35,
+        max_tokens=700,
+    )
+    if not result:
+        return None
+    return _parse_routed_note_json(result, bracket)
+
+
+def llm_format_idea_note(cfg: LLMConfig, raw_text: str) -> tuple[str, str] | None:
+    """Обратная совместимость: то же, что llm_format_routed_note(..., \"idea\")."""
+    return llm_format_routed_note(cfg, raw_text, "idea")
+
+
+def _parse_preflight_json(raw: str) -> dict[str, Any] | None:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```\s*$", "", text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", raw)
+        if not match:
+            return None
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(data, dict):
+        return None
+    action = str(data.get("action", "")).strip().casefold()
+    if action == "clarify":
+        reply = str(data.get("reply", "")).strip()
+        if not reply:
+            return None
+        return {"action": "clarify", "reply": reply}
+    if action == "finalize":
+        summary = str(data.get("summary", "")).strip()
+        vault_text = str(data.get("vault_text", "")).strip()
+        if not summary or not vault_text:
+            return None
+        return {"action": "finalize", "summary": summary, "vault_text": vault_text}
+    return None
+
+
+def llm_capture_preflight_turn(
+    cfg: LLMConfig,
+    *,
+    bucket: str,
+    turns: list[dict[str, str]],
+) -> dict[str, Any] | None:
+    """Уточнение перед записью в vault: clarify (ответ пользователю) или finalize (саммари + текст для записи)."""
+    if not cfg.enabled or not cfg.smart_reply:
+        return None
+    bucket_ru = {"signal": "сигнал (идея/проект/задача в knowledge)", "personal": "личная заметка"}.get(
+        bucket, bucket
+    )
+    lines: list[str] = []
+    for t in turns[-14:]:
+        role = t.get("role", "")
+        content = (t.get("content") or "").strip()
+        if not content:
+            continue
+        prefix = "Пользователь" if role == "user" else "Ты (бот)"
+        lines.append(f"{prefix}: {content}")
+    transcript = "\n".join(lines)
+    if not transcript:
+        return None
+    prompt = (
+        f"Ты ведёшь короткий диалог перед сохранением в Obsidian. Тип: {bucket_ru}.\n"
+        "Важно: опирайся только на факты и формулировки из истории. Не выдумывай слова, не искажай русский "
+        "(никаких вымышленных похожих слов вместо слов пользователя). Ключевые образы и термины из реплик "
+        "пользователя сохраняй дословно или очень близко; при summarize не подменяй их другими корнями.\n\n"
+        "По истории ниже реши:\n"
+        "- Если не хватает деталей или логично задать ОДИН уточняющий вопрос — верни JSON:\n"
+        '  {"action":"clarify","reply":"<вопрос или уточнение, 1–3 предложения, без markdown>"}\n'
+        "- Если можно зафиксировать запись — верни JSON:\n"
+        '  {"action":"finalize","summary":"<2–5 предложений, пересказ строго по сути реплик пользователя, без markdown>","vault_text":"<один связный текст для vault, без markdown, от лица пользователя, только из сказанного, без новых деталей>"}\n'
+        "Не предлагай кнопки в тексте. Если пользователь ответил на твой прошлый вопрос — чаще finalize.\n\n"
+        f"История:\n{transcript[:3500]}"
+    )
+    result = ollama_chat(
+        cfg,
+        [
+            {
+                "role": "system",
+                "content": "Отвечай только одним JSON-объектом, без markdown и без пояснений. Пиши грамотным русским, "
+                "без галлюцинаций и без слов, которых не было по смыслу в репликах пользователя.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=min(0.2, float(cfg.temperature)),
+        max_tokens=600,
+    )
+    if not result:
+        return None
+    return _parse_preflight_json(result)
 
 
 def llm_summarize(cfg: LLMConfig, text: str) -> str | None:

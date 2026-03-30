@@ -158,11 +158,13 @@ final class ObsidianCaptureService {
     }
 
     private func noteTitle(for category: VoiceCaptureCategory, createdAt: Date) -> String {
-        "\(headingDateFormatter.string(from: createdAt)) \(category.noteHeadingLabel)"
+        "\(headingDateFormatter.string(from: createdAt)) · \(category.noteHeadingLabel)"
     }
 
     private func noteFileStem(for category: VoiceCaptureCategory, createdAt: Date) -> String {
-        "\(fileDateFormatter.string(from: createdAt)) \(sanitizedFileComponent(category.noteHeadingLabel))"
+        let dateHead = "\(fileHumanDateFormatter.string(from: createdAt))г."
+        let timeHead = fileTimeOnlyFormatter.string(from: createdAt)
+        return "\(dateHead), \(timeHead) \(sanitizedFileComponent(category.noteHeadingLabel))"
     }
 
     private func noteMarkdown(
@@ -200,17 +202,28 @@ final class ObsidianCaptureService {
         return collapsed.isEmpty ? "Voice Capture" : collapsed
     }
 
-    private let fileDateFormatter: DateFormatter = {
+    /// Имя файла: «17 марта 2026г., 15-06-07 …» — день и месяц словами, без цифрового ISO в начале.
+    private let fileHumanDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM yyyy")
         return formatter
     }()
 
-    private let headingDateFormatter: DateFormatter = {
+    private let fileTimeOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.dateFormat = "HH-mm-ss"
+        return formatter
+    }()
+
+    /// Visible in note body: e.g. "29 марта 2026" (day, month word, year).
+    private let headingDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM yyyy")
         return formatter
     }()
 

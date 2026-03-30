@@ -16,6 +16,28 @@ from zoneinfo import ZoneInfo
 
 import obsidian_head_tool as head_tool
 
+_RU_MONTH_GENITIVE = (
+    "",
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
+
+
+def format_ru_filename_datetime(now: datetime) -> str:
+    """Дата и время для имён файлов: «17 марта 2026г., 14-05-32» (без двоеточий в времени)."""
+    month = _RU_MONTH_GENITIVE[now.month]
+    return f"{now.day} {month} {now.year}г., {now:%H-%M-%S}"
+
 
 ACTION_VERBS = {
     "build",
@@ -314,7 +336,7 @@ def safe_note_title(title: str, *, fallback: str = "Telegram Capture") -> str:
 def build_note_title(text: str, kind: str, now: datetime) -> str:
     stripped = strip_signal_prefix(normalize_capture_text(text))
     if not stripped:
-        return f"{kind.title()} {now:%Y-%m-%d %H-%M}"
+        return f"{kind.title()} {format_ru_filename_datetime(now)}"
     first_line = next((line.strip() for line in stripped.splitlines() if line.strip()), stripped)
     first_line = re.sub(r"^[*-]\s*", "", first_line).strip()
     sentence = re.split(r"(?<=[.!?])\s+|\n", first_line, maxsplit=1)[0].strip()
@@ -330,19 +352,19 @@ def build_note_title(text: str, kind: str, now: datetime) -> str:
             break
 
     if candidate and len(candidate) <= 72 and not any((sentence or first_line or stripped).casefold().startswith(prefix) for prefix in CONVERSATIONAL_TITLE_PREFIXES):
-        return safe_note_title(candidate, fallback=f"{kind.title()} {now:%Y-%m-%d %H-%M}")
+        return safe_note_title(candidate, fallback=f"{kind.title()} {format_ru_filename_datetime(now)}")
 
     candidate_tokens = [token for token in meaningful_tokens(candidate) if token not in TITLE_WEAK_TOKENS][:5]
     if candidate_tokens:
         rebuilt = " ".join(candidate_tokens)
         rebuilt = rebuilt[:1].upper() + rebuilt[1:]
-        return safe_note_title(rebuilt, fallback=f"{kind.title()} {now:%Y-%m-%d %H-%M}")
+        return safe_note_title(rebuilt, fallback=f"{kind.title()} {format_ru_filename_datetime(now)}")
 
     fallback_title = {
         "idea": "Новая идея",
         "thought": "Новая мысль",
         "post": "Новый пост",
-    }.get(kind, f"{kind.title()} {now:%Y-%m-%d %H-%M}")
+    }.get(kind, f"{kind.title()} {format_ru_filename_datetime(now)}")
     return safe_note_title(fallback_title, fallback=fallback_title)
 
 
@@ -533,12 +555,25 @@ def capture_block(
     return "\n".join(lines).strip()
 
 
-def ensure_new_permanent_note(path: Path, *, title: str, kind: str, text: str, now: datetime) -> None:
+def ensure_new_permanent_note(
+    path: Path,
+    *,
+    title: str,
+    kind: str,
+    text: str,
+    now: datetime,
+    elaboration: str | None = None,
+) -> None:
     primary_heading = {
-        "idea": "Idea",
-        "thought": "Thought",
-        "post": "Draft",
+        "idea": "Идея",
+        "thought": "Мысль",
+        "post": "Пост",
     }.get(kind, "Summary")
+    main_block = elaboration.strip() if elaboration else text.strip()
+    source_block = ""
+    if elaboration:
+        quoted = "\n".join("> " + line if line else ">" for line in text.splitlines())
+        source_block = f"\n\n### Исходный сигнал\n\n{quoted}\n"
     frontmatter = render_frontmatter(
         {
             "title": title,
@@ -551,7 +586,7 @@ def ensure_new_permanent_note(path: Path, *, title: str, kind: str, text: str, n
     body = (
         f"# {title}\n\n"
         f"## {primary_heading}\n"
-        f"{text.strip()}\n\n"
+        f"{main_block}{source_block}\n"
         "## Captures\n\n"
         "## Related\n"
     )
@@ -570,9 +605,12 @@ def ensure_note_capture(
     vault: Path,
     route_reason: str,
     obsidian_tool: Any,
+    elaboration: str | None = None,
 ) -> bool:
     if not path.exists():
-        ensure_new_permanent_note(path, title=title, kind=kind, text=text, now=now)
+        ensure_new_permanent_note(
+            path, title=title, kind=kind, text=text, now=now, elaboration=elaboration
+        )
     current = read_text(path)
     if capture_id in current:
         return False
@@ -825,13 +863,23 @@ def make_draft_id(now: datetime, text: str) -> str:
     return f"draft-{now:%Y%m%d-%H%M%S}-{digest}"
 
 
-def build_draft_path(vault: Path, draft_id: str, title: str, config: SignalRouterConfig, obsidian_tool: Any) -> Path:
-    base_title = safe_note_title(f"{draft_id} {title}", fallback=draft_id)
+def build_draft_path(
+    vault: Path,
+    draft_id: str,
+    title: str,
+    now: datetime,
+    config: SignalRouterConfig,
+    obsidian_tool: Any,
+) -> Path:
+    stamp = format_ru_filename_datetime(now)
+    base_title = safe_note_title(f"{stamp} {title}", fallback=f"{stamp} черновик")
     path = obsidian_tool.build_note_path(vault, base_title, None, config.draft_directory)
     if not path.exists():
         return path
     for index in range(2, 1000):
-        candidate = obsidian_tool.build_note_path(vault, f"{base_title} {index}", None, config.draft_directory)
+        candidate = obsidian_tool.build_note_path(
+            vault, f"{base_title} {index}", None, config.draft_directory
+        )
         if not candidate.exists():
             return candidate
     raise SignalRouterError(f"Could not allocate draft path for {title}")
@@ -851,9 +899,10 @@ def ensure_signal_draft(
     draft_reason: str,
     suggested_topic: str,
     obsidian_tool: Any,
+    elaboration: str | None = None,
 ) -> dict[str, Any]:
     draft_id = make_draft_id(now, text)
-    path = build_draft_path(vault, draft_id, title, config, obsidian_tool)
+    path = build_draft_path(vault, draft_id, title, now, config, obsidian_tool)
     topic_tokens = tokens[:8]
     frontmatter = render_frontmatter(
         {
@@ -870,6 +919,9 @@ def ensure_signal_draft(
         }
     )
     source_line = f"- source_capture: [[{note_link_from_path(vault, source_path)}]]\n" if source_path is not None else ""
+    elaboration_block = ""
+    if elaboration and str(elaboration).strip():
+        elaboration_block = f"## Развёрнуто\n\n{str(elaboration).strip()}\n\n"
     body = (
         f"# {title}\n\n"
         "## Routing Review\n"
@@ -879,6 +931,7 @@ def ensure_signal_draft(
         f"- suggested_topic: {suggested_topic or 'none'}\n"
         "- next_action: approve or reject this draft from Telegram\n"
         f"{source_line}\n"
+        f"{elaboration_block}"
         "## Original Signal\n"
         + "\n".join("> " + line if line else ">" for line in text.splitlines())
         + "\n\n## Semantic Tokens\n"
@@ -1060,6 +1113,23 @@ def route_signal(
         best_stage=best_stage,
         force_publish=force_publish,
     )
+    note_elaboration: str | None = None
+    if (
+        kind in ("idea", "thought", "post")
+        and llm_config is not None
+        and (should_draft or existing_note is None)
+    ):
+        try:
+            import ollama_bridge
+
+            pair = ollama_bridge.llm_format_routed_note(llm_config, clean_text, kind)
+            if pair:
+                llm_title, llm_body = pair
+                title = safe_note_title(llm_title, fallback=title)
+                note_elaboration = llm_body
+                tokens = topic_tokens_for_signal(title, clean_text)
+        except Exception:
+            pass
     if should_draft:
         suggested_topic = humanize_theme_title(title, tokens)
         draft_result = ensure_signal_draft(
@@ -1075,6 +1145,7 @@ def route_signal(
             draft_reason=draft_reason,
             suggested_topic=suggested_topic,
             obsidian_tool=obsidian_tool,
+            elaboration=note_elaboration,
         )
         if memory_path is not None:
             append_change_log(
@@ -1111,9 +1182,12 @@ def route_signal(
         vault=vault,
         route_reason=confidence,
         obsidian_tool=obsidian_tool,
+        elaboration=note_elaboration,
     )
 
-    if llm_config is not None and note_created:
+    if llm_config is not None and note_created and not (
+        kind in ("idea", "thought", "post") and note_elaboration
+    ):
         try:
             import ollama_bridge
             summary = ollama_bridge.llm_summarize(llm_config, clean_text)

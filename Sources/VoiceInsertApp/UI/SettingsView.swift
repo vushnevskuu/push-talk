@@ -137,6 +137,38 @@ struct SettingsView: View {
         }
     }
 
+    /// Язык для Apple Speech — тот же для вставки в поле и для Obsidian shortcut.
+    private var dictationLanguageSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Recognition language")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Picker(
+                "",
+                selection: Binding(
+                    get: { model.dictationLanguage },
+                    set: { model.updateDictationLanguage($0) }
+                )
+            ) {
+                ForEach(DictationLanguage.allCases, id: \.self) { language in
+                    Text(language.title).tag(language)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .disabled(model.phase != .idle)
+
+            Text(
+                "Говорите по-английски — включите English (en-US): в режиме Русский английские слова часто распознаются хуже. "
+                + "Это распознавание Apple на устройстве; при ошибках скачайте язык: System Settings → Keyboard → Dictation."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var secondaryColumn: some View {
         VStack(alignment: .leading, spacing: 20) {
             behaviorCard
@@ -170,6 +202,8 @@ struct SettingsView: View {
                         onCancel: model.cancelShortcutRecording
                     )
                 }
+
+                dictationLanguageSection
 
                 InlineNotice(
                     icon: "info.circle",
@@ -364,42 +398,16 @@ struct SettingsView: View {
                     icon: "slider.horizontal.3",
                     iconTint: Color(red: 0.49, green: 0.38, blue: 0.90),
                     title: "Behavior",
-                    subtitle: "Keep the app calm in the background, with only the controls and feedback you want to see."
+                    subtitle: "Recognition language, punctuation, and optional floating control. Same language is used for the main shortcut and for Obsidian capture."
                 )
+
+                dictationLanguageSection
 
                 SettingToggleRow(
                     title: "Automatic punctuation",
                     detail: "Adds sentence punctuation when the system recognizer supports it.",
                     isOn: $model.autoPunctuation
                 )
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Dictation language")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-
-                    Picker(
-                        "",
-                        selection: Binding(
-                            get: { model.dictationLanguage },
-                            set: { model.updateDictationLanguage($0) }
-                        )
-                    ) {
-                        ForEach(DictationLanguage.allCases, id: \.self) { language in
-                            Text(language.title).tag(language)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .disabled(model.phase != .idle)
-
-                    Text(
-                        "Uses Apple's on-device recognizer for the selected language. Download the language in System Settings → Keyboard → Dictation if recognition is unavailable."
-                    )
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
 
                 SettingToggleRow(
                     title: "Show floating button",

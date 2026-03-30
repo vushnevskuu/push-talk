@@ -139,6 +139,26 @@ struct MenuBarMenuView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Text("Язык")
+                        .font(.system(size: 13, weight: .medium))
+
+                    Spacer(minLength: 8)
+
+                    Picker("Язык", selection: Binding(
+                        get: { model.dictationLanguage },
+                        set: { model.updateDictationLanguage($0) }
+                    )) {
+                        ForEach(DictationLanguage.allCases, id: \.self) { lang in
+                            Text(lang.title).tag(lang)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .frame(maxWidth: 220)
+                }
+                .disabled(model.phase != .idle)
+
                 Toggle("Automatic punctuation", isOn: $model.autoPunctuation)
                 Toggle(
                     "Show floating button",
@@ -172,6 +192,7 @@ struct MenuBarMenuView: View {
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.permissions)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.isPanelVisible)
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.phase)
+        .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.dictationLanguage)
         .onAppear {
             model.refreshPermissionsFromUI()
         }

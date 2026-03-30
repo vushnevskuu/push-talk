@@ -20,7 +20,7 @@ final class FloatingPanelController {
     }
 
     private func makePanel(with model: AppModel) -> NSPanel {
-        let size = NSSize(width: 360, height: 220)
+        let size = NSSize(width: 360, height: 256)
         let frame = defaultFrame(for: size)
         let panel = NonActivatingPanel(
             contentRect: frame,
