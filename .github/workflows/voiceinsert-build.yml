@@ -1,4 +1,5 @@
 # Verifies that VoiceInsert builds from a clean clone (swift build + Scripts/build_app.sh).
+# Runners expose Swift 5.x by default; Package.swift requires swift-tools-version: 6.0 — pin Swift 6 here.
 
 name: VoiceInsert build
 
@@ -15,21 +16,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Swift 6
+        uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: "6.0.3"
+
       - name: Swift toolchain
         run: swift --version
 
       - name: Swift PM release build
+        env:
+          CI: "true"
         run: |
           set -euo pipefail
           swift build -c release --product VoiceInsert --product VoiceInsertInjector
 
       - name: Assemble .app (build_app.sh)
+        env:
+          CI: "true"
         run: |
           set -euo pipefail
           chmod +x Scripts/build_app.sh Scripts/ensure_local_codesigning_identity.sh
           ./Scripts/build_app.sh
 
       - name: Check bundle layout
+        env:
+          CI: "true"
         run: |
           set -euo pipefail
           test -f Build/VoiceInsert.app/Contents/Info.plist

@@ -66,10 +66,13 @@ if command -v codesign >/dev/null 2>&1; then
   fi
 fi
 
-mkdir -p "$HOME/Applications"
-pkill -f "$INSTALL_DIR/Contents/MacOS/$APP_NAME" >/dev/null 2>&1 || true
-rm -rf "$INSTALL_DIR"
-cp -R "$APP_DIR" "$INSTALL_DIR"
-
 echo "App bundle created at: $APP_DIR"
-echo "Installed app at: $INSTALL_DIR"
+if [[ -n "${CI:-}" ]]; then
+  echo "CI=1: skipping copy to ~/Applications"
+else
+  mkdir -p "$HOME/Applications"
+  pkill -f "$INSTALL_DIR/Contents/MacOS/$APP_NAME" >/dev/null 2>&1 || true
+  rm -rf "$INSTALL_DIR"
+  cp -R "$APP_DIR" "$INSTALL_DIR"
+  echo "Installed app at: $INSTALL_DIR"
+fi
