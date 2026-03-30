@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemController.install()
     }
 
-    /// После выдачи прав в System Settings монитор клавиш часто остаётся в Local Only, пока приложение снова не переинициализирует event tap / hot key.
+    /// After granting permissions in System Settings, the shortcut monitor may stay Local Only until the app re-inits the event tap / hotkey.
     func applicationDidBecomeActive(_ notification: Notification) {
         AppRuntime.sharedModel.refreshPermissionsFromUI()
     }

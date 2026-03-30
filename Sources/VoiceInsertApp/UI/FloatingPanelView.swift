@@ -91,11 +91,11 @@ struct FloatingPanelView: View {
                     }
 
                     HStack(spacing: 8) {
-                        Text("Язык")
+                        Text("Language")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.secondary)
 
-                        Picker("Язык", selection: Binding(
+                        Picker("Language", selection: Binding(
                             get: { model.dictationLanguage },
                             set: { model.updateDictationLanguage($0) }
                         )) {

@@ -249,7 +249,7 @@ final class AppModel: ObservableObject {
             return "Obsidian capture uses the same microphone, speech, and Input Monitoring pipeline as field insertion. Finish those permissions and this shortcut will work too."
         }
 
-        return "Hold \(obsidianShortcutDisplayText) and say things like “эта идея ...”, “задача ...”, or “заметка ...”. VoiceInsert will sort the note into the matching Obsidian folder."
+        return "Hold \(obsidianShortcutDisplayText) and say things like “this idea …”, “task …”, or “note …”. VoiceInsert will sort the note into the matching Obsidian folder."
     }
 
     func startHold() {
@@ -409,7 +409,7 @@ final class AppModel: ObservableObject {
         speechService.cancelSession()
         prewarmSpeechPipeline()
         scheduleMicrophoneRoutePrewarmFromIdleState()
-        statusMessage = "Язык распознавания: \(language.title) (\(language.speechLocale.identifier))."
+        statusMessage = "Recognition language: \(language.title) (\(language.speechLocale.identifier))."
     }
 
     func completeInitialSetup() {

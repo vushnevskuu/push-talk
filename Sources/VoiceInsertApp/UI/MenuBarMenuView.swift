@@ -140,12 +140,12 @@ struct MenuBarMenuView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    Text("Язык")
+                    Text("Language")
                         .font(.system(size: 13, weight: .medium))
 
                     Spacer(minLength: 8)
 
-                    Picker("Язык", selection: Binding(
+                    Picker("Language", selection: Binding(
                         get: { model.dictationLanguage },
                         set: { model.updateDictationLanguage($0) }
                     )) {

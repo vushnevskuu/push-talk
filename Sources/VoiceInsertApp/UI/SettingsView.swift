@@ -137,7 +137,7 @@ struct SettingsView: View {
         }
     }
 
-    /// Язык для Apple Speech — тот же для вставки в поле и для Obsidian shortcut.
+    /// Apple Speech locale — same for field insertion and the Obsidian shortcut.
     private var dictationLanguageSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Recognition language")
@@ -160,8 +160,8 @@ struct SettingsView: View {
             .disabled(model.phase != .idle)
 
             Text(
-                "Говорите по-английски — включите English (en-US): в режиме Русский английские слова часто распознаются хуже. "
-                + "Это распознавание Apple на устройстве; при ошибках скачайте язык: System Settings → Keyboard → Dictation."
+                "For English speech, choose English (en‑US). With Russian (ru‑U), English words are often recognized poorly. "
+                + "Recognition is on‑device; download the language pack under System Settings → Keyboard → Dictation if needed."
             )
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
