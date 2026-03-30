@@ -77,7 +77,7 @@ struct SettingsView: View {
 
                         Text(
                             model.requiresInitialSetup
-                            ? "Choose a shortcut, grant microphone and speech recognition, then click OK. Accessibility is optional and improves insertion in some apps."
+                            ? "Choose a shortcut, grant microphone and speech recognition, then click OK. For reliable insertion into other apps, also enable Accessibility."
                             : "VoiceInsert runs quietly in the menu bar. Hold your shortcut to dictate into the field that already has focus."
                         )
                         .font(.system(size: 14))
@@ -207,7 +207,7 @@ struct SettingsView: View {
 
                 InlineNotice(
                     icon: "info.circle",
-                    text: "Shortcut engine: \(model.hotkeyMonitorStatusTitle). VoiceInsert suppresses the chosen shortcut globally only when the engine is in Global mode."
+                    text: "Shortcut engine: \(model.hotkeyMonitorStatusTitle). VoiceInsert catches the shortcut globally when the engine is in Global mode; on newer macOS builds the key can still leak into the front app if the system only allows observe-only monitoring."
                 )
 
                 if model.isRecordingShortcut {
@@ -319,7 +319,7 @@ struct SettingsView: View {
                     icon: "checkmark.shield.fill",
                     iconTint: Color(red: 0.13, green: 0.61, blue: 0.41),
                     title: "Permissions",
-                    subtitle: "VoiceInsert needs microphone, speech recognition, and Input Monitoring for the global shortcut. Accessibility is optional and improves direct insertion in some apps."
+                    subtitle: "VoiceInsert needs microphone, speech recognition, and Input Monitoring for the global shortcut. Accessibility is strongly recommended so typing and paste actually land in other apps."
                 )
 
                 VStack(spacing: 12) {
@@ -353,9 +353,9 @@ struct SettingsView: View {
                     PermissionStatusRow(
                         icon: "cursorarrow.rays",
                         title: "Accessibility",
-                        detail: "Optional: improves direct insertion in apps that do not accept paste cleanly.",
+                        detail: "Recommended for reliable typing and paste in browsers, Electron apps, and custom inputs.",
                         state: model.permissions.accessibility,
-                        statusTitle: model.permissions.accessibility == .authorized ? "Enabled" : "Optional",
+                        statusTitle: model.permissions.accessibility == .authorized ? "Enabled" : "Recommended",
                         statusTint: model.permissions.accessibility == .authorized
                             ? .green
                             : Color(red: 0.26, green: 0.46, blue: 0.78),

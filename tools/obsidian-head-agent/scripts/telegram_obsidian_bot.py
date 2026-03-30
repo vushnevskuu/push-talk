@@ -3416,6 +3416,18 @@ def preflight_try_resume_from_reply_to_bot(
     if not isinstance(rm, dict):
         return False
     if not (rm.get("from") or {}).get("is_bot"):
+        # #region agent log
+        _agent_dbg(
+            "H1",
+            "telegram_obsidian_bot.py:preflight_try_resume_from_reply_to_bot",
+            "resume skip: reply not to bot",
+            {
+                "chat_id": chat_id,
+                "word_count": word_count(text),
+                "reply_from_is_bot": (rm.get("from") or {}).get("is_bot"),
+            },
+        )
+        # #endregion
         return False
     if word_count(text) > 6:
         return False
@@ -3632,6 +3644,20 @@ def process_message(config: BotConfig, message: dict[str, Any], state: dict[str,
         sess_new = preflight_get_session(st, chat_id)
         if sess_new is not None:
             preflight_run_llm_reply(config, chat_id, sess_new, attachment, source_kind)
+        # #region agent log
+        _sess_after = preflight_get_session(st, chat_id)
+        _agent_dbg(
+            "H2",
+            "telegram_obsidian_bot.py:process_message:use_preflight_exit",
+            "after preflight_run",
+            {
+                "chat_id": chat_id,
+                "has_session": _sess_after is not None,
+                "phase": (_sess_after or {}).get("phase"),
+                "session_id": (_sess_after or {}).get("session_id"),
+            },
+        )
+        # #endregion
         return
 
     if decision.capture:

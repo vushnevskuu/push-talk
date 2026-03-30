@@ -33,7 +33,7 @@ For vault layout and where responsibility ends, see **[docs/obsidian-files.md](d
 ./Scripts/build_app.sh
 ```
 
-This resolves release binaries under `.build/…/release` (Apple Silicon and Intel), signs the bundle **ad hoc** (`codesign -`) by default so you do **not** need Homebrew OpenSSL or a custom signing identity. To use the optional local identity + keychain script instead:
+This resolves release binaries under `.build/…/release` (Apple Silicon and Intel). On machines that already have the bundled `VoiceInsert Local Signing` identity, `build_app.sh` now uses it automatically so macOS privacy grants keep sticking across rebuilds. Fresh clones still fall back to **ad hoc** signing (`codesign -`) so you do **not** need Homebrew OpenSSL or a custom signing identity. To force the local identity + keychain path explicitly:
 
 ```bash
 VOICEINSERT_USE_LOCAL_IDENTITY=1 ./Scripts/build_app.sh

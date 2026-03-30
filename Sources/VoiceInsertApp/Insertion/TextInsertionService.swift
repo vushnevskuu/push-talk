@@ -85,8 +85,15 @@ final class TextInsertionService {
         let focusedElement = includeFocusedElement && AXIsProcessTrusted()
             ? focusedUIElement(for: effectivePID) ?? (frontmostPID == effectivePID ? focusedUIElement() : nil)
             : nil
-        let clickPoint = recentClickPoint(for: effectivePID)
-            ?? inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+        // У OpenAI Codex недавний клик по центру окна часто бьёт в сайдбар; геометрия композера стабильнее.
+        let clickPoint: CGPoint?
+        if bundleIdentifier == "com.openai.codex" {
+            clickPoint = inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+                ?? recentClickPoint(for: effectivePID)
+        } else {
+            clickPoint = recentClickPoint(for: effectivePID)
+                ?? inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+        }
 
         return TextInsertionTarget(
             focusedElement: focusedElement,
@@ -96,14 +103,82 @@ final class TextInsertionService {
         )
     }
 
+    /// Snapshot for the start of hold-to-dictate: PID/bundle + last mouse click only.
+    /// Skips AX and `CGWindowListCopyWindowInfo` (used for Codex/Cursor composer inference) so the main thread
+    /// doesn’t stall before `SpeechRecognitionService.startSession()`.
+    func captureTargetForHoldStart() -> TextInsertionTarget {
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let frontmostPID = frontmostApplication?.processIdentifier
+        let effectivePID = resolvedTargetPID(frontmostPID: frontmostPID)
+        let effectiveApplication: NSRunningApplication?
+        if let effectivePID, effectivePID == frontmostPID {
+            effectiveApplication = frontmostApplication
+        } else if let effectivePID {
+            effectiveApplication = NSRunningApplication(processIdentifier: effectivePID)
+        } else {
+            effectiveApplication = frontmostApplication
+        }
+        let bundleIdentifier = effectiveApplication?.bundleIdentifier
+        let clickPoint = recentClickPoint(for: effectivePID)
+
+        return TextInsertionTarget(
+            focusedElement: nil,
+            frontmostAppPID: effectivePID,
+            clickPoint: clickPoint,
+            frontmostBundleIdentifier: bundleIdentifier
+        )
+    }
+
+    /// After dictation the frontmost app may still be VoiceInsert; refresh AX/cursor state while keeping useful stale fields (e.g. click fallbacks).
+    private func mergeWithFreshCapture(stale: TextInsertionTarget?) -> TextInsertionTarget {
+        let fresh = captureTarget(includeFocusedElement: true)
+        guard let stale else { return fresh }
+
+        // When HUD/settings focus VoiceInsert, `resolvedTargetPID` can fall back to nil and `captureTarget`
+        // may report our bundle — overwriting `stale` from key-down would send paste/typing to the wrong app.
+        if isInsertionTargetSelfApp(fresh) {
+            return TextInsertionTarget(
+                focusedElement: stale.focusedElement ?? fresh.focusedElement,
+                frontmostAppPID: stale.frontmostAppPID,
+                clickPoint: stale.clickPoint ?? fresh.clickPoint,
+                frontmostBundleIdentifier: stale.frontmostBundleIdentifier
+            )
+        }
+
+        return TextInsertionTarget(
+            focusedElement: fresh.focusedElement ?? stale.focusedElement,
+            frontmostAppPID: fresh.frontmostAppPID ?? stale.frontmostAppPID,
+            clickPoint: fresh.clickPoint ?? stale.clickPoint,
+            frontmostBundleIdentifier: fresh.frontmostBundleIdentifier ?? stale.frontmostBundleIdentifier
+        )
+    }
+
+    private func isInsertionTargetSelfApp(_ target: TextInsertionTarget) -> Bool {
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        if let pid = target.frontmostAppPID, pid == selfPID {
+            return true
+        }
+        if let bid = target.frontmostBundleIdentifier, bid == Bundle.main.bundleIdentifier {
+            return true
+        }
+        return false
+    }
+
     func insert(text: String, target: TextInsertionTarget?) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
 
-        beginDebugTrace(text: trimmedText, target: target)
+        defer {
+            Self.persistInsertionTraceForSupport()
+        }
 
-        let focusedElement = target?.focusedElement
-            ?? focusedUIElement(for: target?.frontmostAppPID)
+        _ = reactivateTargetAppIfNeeded(target)
+        try await Task.sleep(for: .milliseconds(120))
+        let mergedTarget = mergeWithFreshCapture(stale: target)
+        beginDebugTrace(text: trimmedText, target: mergedTarget)
+
+        let focusedElement = mergedTarget.focusedElement
+            ?? focusedUIElement(for: mergedTarget.frontmostAppPID)
             ?? captureTarget().focusedElement
 
         if let focusedElement {
@@ -121,16 +196,16 @@ final class TextInsertionService {
         }
 
         if let focusedElement,
-           shouldSkipDirectAccessibilityInsert(for: target, focusedElement: focusedElement) {
+           shouldSkipDirectAccessibilityInsert(for: mergedTarget, focusedElement: focusedElement) {
             appendDebugTrace("direct_ax_insert=skipped_placeholder_backed")
         } else if focusedElement != nil,
-                  shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(target) {
+                  shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(mergedTarget) {
             appendDebugTrace("direct_ax_insert=skipped_paste_only_bundle")
         } else if let focusedElement,
                   try insertDirectly(
                     text: trimmedText,
                     into: focusedElement,
-                    bundleIdentifier: target?.frontmostBundleIdentifier
+                    bundleIdentifier: mergedTarget.frontmostBundleIdentifier
                   ) {
             appendDebugTrace("direct_ax_insert=success")
             return
@@ -138,36 +213,104 @@ final class TextInsertionService {
             appendDebugTrace("direct_ax_insert=failed")
         }
 
-        if prefersTypingFallback(for: target, focusedElement: focusedElement) {
+        if prefersTypingFallback(for: mergedTarget, focusedElement: focusedElement) {
             appendDebugTrace("bundle_specific_path=codex_menu_paste")
 
-            if try insertViaMenuPaste(trimmedText, target: target, focusedElement: focusedElement) {
+            if try insertViaMenuPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
                 appendDebugTrace("menu_paste_path=success")
                 return
             }
 
             appendDebugTrace("menu_paste_path=failed")
 
-            if try await insertViaHelperTyping(trimmedText, target: target) {
+            if mergedTarget.frontmostBundleIdentifier == "com.openai.codex" {
+                if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                    appendDebugTrace("pasteboard_path=success_codex_after_menu")
+                    return
+                }
+                appendDebugTrace("pasteboard_path=failed_codex_after_menu")
+            }
+
+            // Electron/WebView editors often ignore paste even after the composer is reactivated.
+            // Fall back to a helper HID typer before asking for heavier Apple Events permissions.
+            if try await insertViaHelperPaste(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
+                appendDebugTrace("helper_paste_path=success")
+                return
+            }
+
+            appendDebugTrace("helper_paste_path=failed")
+
+            if try await insertViaHelperTyping(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
                 appendDebugTrace("helper_typing_path=success")
                 return
             }
 
             appendDebugTrace("helper_typing_path=failed")
-            try insertViaTyping(trimmedText, target: target, chunkSize: 24)
-            appendDebugTrace("typing_path=sent")
+            if try insertViaSystemEventsPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                appendDebugTrace("system_events_paste_path=success")
+                return
+            }
+
+            appendDebugTrace("system_events_paste_path=failed")
+            try insertViaSystemEventsTyping(trimmedText, target: mergedTarget, focusedElement: focusedElement)
+            appendDebugTrace("system_events_typing_path=sent")
             return
         }
 
-        if try insertViaPasteboard(trimmedText, target: target, focusedElement: focusedElement) {
+        if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
             appendDebugTrace("pasteboard_path=success")
             return
         }
 
         appendDebugTrace("pasteboard_path=failed")
 
-        try insertViaTyping(trimmedText, target: target, chunkSize: 8)
+        if canAttemptClickBasedHelperFallback(target: mergedTarget, focusedElement: focusedElement) {
+            if try await insertViaHelperPaste(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
+                appendDebugTrace("helper_paste_path=success")
+                return
+            }
+
+            appendDebugTrace("helper_paste_path=failed")
+
+            if try await insertViaHelperTyping(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
+                appendDebugTrace("helper_typing_path=success")
+                return
+            }
+
+            appendDebugTrace("helper_typing_path=failed")
+        }
+
+        try insertViaTyping(trimmedText, target: mergedTarget, chunkSize: 8, axFocusedElement: focusedElement)
         appendDebugTrace("typing_path=sent")
+    }
+
+    private nonisolated static func persistInsertionTraceForSupport() {
+        let text = UserDefaults.standard.string(forKey: DefaultsKey.lastInsertionDebug) ?? ""
+        guard !text.isEmpty else { return }
+
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let dir = base.appendingPathComponent("VoiceInsert", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fileURL = dir.appendingPathComponent("insert-trace.txt", isDirectory: false)
+        try? text.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
     private func focusedUIElement() -> AXUIElement? {
@@ -349,9 +492,7 @@ final class TextInsertionService {
             try restoreInteractionTarget(target, focusedElement: focusedElement)
             waitForShortcutModifiersToRelease()
 
-            if Self.isCursorLikeApp(target) {
-                try simulateSelectAllShortcut(targetPID: targetPID)
-            }
+            try cursorSelectAllIfNeeded(target: target, focusedElement: focusedElement, targetPID: targetPID)
 
             try simulatePasteShortcut(targetPID: targetPID)
             let verification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
@@ -376,7 +517,8 @@ final class TextInsertionService {
 
             if verification == nil {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-                if shouldAssumePasteSucceededWithoutVerification(for: target) {
+                if shouldAssumePasteSucceededWithoutVerification(for: target),
+                   !canAttemptClickBasedHelperFallback(target: target, focusedElement: focusedElement) {
                     appendDebugTrace("pasteboard_verification=assumed_success_without_ax")
                     snapshot.restore()
                     return true
@@ -393,19 +535,74 @@ final class TextInsertionService {
         }
     }
 
-    private func insertViaTyping(_ text: String, target: TextInsertionTarget?, chunkSize: Int) throws {
+    private func canAttemptClickBasedHelperFallback(
+        target: TextInsertionTarget?,
+        focusedElement: AXUIElement?
+    ) -> Bool {
+        focusedElement == nil && target?.clickPoint != nil
+    }
+
+    private func insertViaTyping(_ text: String, target: TextInsertionTarget?, chunkSize: Int, axFocusedElement: AXUIElement?) throws {
         let targetPID = reactivateTargetAppIfNeeded(target)
-        try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
+        try restoreInteractionTarget(target, focusedElement: axFocusedElement ?? target?.focusedElement)
         waitForShortcutModifiersToRelease()
 
-        if Self.isCursorLikeApp(target) {
-            try simulateSelectAllShortcut(targetPID: targetPID)
-        }
+        try cursorSelectAllIfNeeded(target: target, focusedElement: axFocusedElement, targetPID: targetPID)
 
         try simulateTyping(text, targetPID: targetPID, chunkSize: chunkSize)
     }
 
-    private func insertViaHelperTyping(_ text: String, target: TextInsertionTarget?) async throws -> Bool {
+    /// Cmd+A without a real AX text target often hits the wrong Electron control (sidebar, palette); skip when we only have click-based restore.
+    private func cursorSelectAllIfNeeded(
+        target: TextInsertionTarget?,
+        focusedElement: AXUIElement?,
+        targetPID: pid_t?
+    ) throws {
+        guard Self.isCursorLikeApp(target) else { return }
+        guard focusedElement != nil else {
+            appendDebugTrace("cursor_select_all=skipped_no_ax_focus")
+            return
+        }
+        try simulateSelectAllShortcut(targetPID: targetPID)
+    }
+
+    private func insertViaHelperTyping(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?
+    ) async throws -> Bool {
+        try await runHelperInsertion(
+            text,
+            target: target,
+            axFocusedElement: axFocusedElement,
+            extraArguments: []
+        )
+    }
+
+    private func insertViaHelperPaste(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?
+    ) async throws -> Bool {
+        let snapshot = PasteboardSnapshot.capture()
+        defer {
+            snapshot.restore()
+        }
+
+        return try await runHelperInsertion(
+            text,
+            target: target,
+            axFocusedElement: axFocusedElement,
+            extraArguments: ["--paste"]
+        )
+    }
+
+    private func runHelperInsertion(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?,
+        extraArguments: [String]
+    ) async throws -> Bool {
         guard let helperURL = injectorExecutableURL() else {
             appendDebugTrace("helper_typing_error=missing_helper")
             return false
@@ -414,19 +611,18 @@ final class TextInsertionService {
         waitForShortcutModifiersToRelease()
         if Self.isCursorLikeApp(target) {
             let targetPID = reactivateTargetAppIfNeeded(target)
-            try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
-            try simulateSelectAllShortcut(targetPID: targetPID)
+            try restoreInteractionTarget(target, focusedElement: axFocusedElement ?? target?.focusedElement)
+            try cursorSelectAllIfNeeded(target: target, focusedElement: axFocusedElement, targetPID: targetPID)
         }
 
-        var arguments: [String] = []
-        arguments.append("--event-injector")
+        var arguments: [String] = ["--event-injector"]
+        arguments.append(contentsOf: extraArguments)
 
-        if !Self.isCursorLikeApp(target), let bundleIdentifier = target?.frontmostBundleIdentifier {
+        if let bundleIdentifier = target?.frontmostBundleIdentifier {
             arguments.append(contentsOf: ["--bundle-id", bundleIdentifier])
         }
 
-        if !Self.isCursorLikeApp(target),
-           let clickPoint = target?.clickPoint {
+        if let clickPoint = target?.clickPoint {
             arguments.append(contentsOf: [
                 "--click-x",
                 String(describing: clickPoint.x),
@@ -436,6 +632,19 @@ final class TextInsertionService {
         }
 
         do {
+            let fm = NSWorkspace.shared.frontmostApplication
+            AgentDebugLog.append(
+                hypothesisId: "H4",
+                location: "TextInsertionService.swift:runHelperInsertion",
+                message: "before_runHelper",
+                data: [
+                    "frontmostPID": fm.map { String($0.processIdentifier) } ?? "nil",
+                    "frontmostBundle": fm?.bundleIdentifier ?? "nil",
+                    "targetPID": target?.frontmostAppPID.map(String.init) ?? "nil",
+                    "targetBundle": target?.frontmostBundleIdentifier ?? "nil",
+                    "mode": extraArguments.contains("--paste") ? "paste" : "typing"
+                ]
+            )
             let result = try await Self.runHelper(
                 executableURL: helperURL,
                 arguments: arguments,
@@ -472,9 +681,7 @@ final class TextInsertionService {
         try restoreInteractionTarget(target, focusedElement: focusedElement)
         waitForShortcutModifiersToRelease()
 
-        if Self.isCursorLikeApp(target) {
-            try simulateSelectAllShortcut(targetPID: targetPID)
-        }
+        try cursorSelectAllIfNeeded(target: target, focusedElement: focusedElement, targetPID: targetPID)
 
         guard performPasteMenuAction(on: targetPID) else {
             return false
@@ -763,10 +970,12 @@ final class TextInsertionService {
     ) throws {
         if let focusedElement {
             restoreFocusIfPossible(on: focusedElement)
-        } else if Self.isCursorLikeApp(target) {
-            appendDebugTrace("restore_target=skip_click_cursor")
         } else if let clickPoint = target?.clickPoint {
+            // Electron / Cursor: AX focus is often missing; clickPoint still targets the composer (see insert-trace skip + helper “success” but no text).
+            appendDebugTrace("restore_target=click_at_point")
             try simulateClick(at: clickPoint)
+        } else if Self.isCursorLikeApp(target) {
+            appendDebugTrace("restore_target=skip_click_cursor_no_point")
         }
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
@@ -863,19 +1072,26 @@ final class TextInsertionService {
         guard let pid, let bundleIdentifier else { return nil }
 
         if bundleIdentifier == "com.openai.codex" || bundleIdentifier.hasPrefix("com.todesktop.") {
-            return codexComposerClickPoint(for: pid)
+            return codexComposerClickPoint(for: pid, bundleIdentifier: bundleIdentifier)
         }
         return nil
     }
 
-    private func codexComposerClickPoint(for pid: pid_t) -> CGPoint? {
+    /// Вертикаль — нижняя зона окна (поле ввода). Горизонталь: у Codex левая навигация забирает фокус при клике в геометрический центр окна.
+    private func codexComposerClickPoint(for pid: pid_t, bundleIdentifier: String) -> CGPoint? {
         guard let bounds = frontmostWindowBounds(for: pid) else { return nil }
 
-        let screenMaxY = NSScreen.screens.map(\.frame.maxY).max() ?? NSScreen.main?.frame.maxY ?? 0
-        let topLeftComposerY = bounds.origin.y + bounds.height - 92
-        let convertedY = max(0, screenMaxY - topLeftComposerY)
+        let isOpenAICodex = bundleIdentifier == "com.openai.codex"
+        // У Codex левый rail широкий; поле ввода правее центра окна.
+        let bottomInset: CGFloat = isOpenAICodex ? 200 : 92
+        // `CGWindowList` bounds already line up with the click coordinates accepted by our CGEvent injector.
+        // Flipping Y here sends the fallback click far above the composer in Codex/Cursor.
+        let clickY = bounds.origin.y + bounds.height - bottomInset
 
-        return CGPoint(x: bounds.midX, y: convertedY)
+        let xRatio: CGFloat = isOpenAICodex ? 0.82 : 0.5
+        let clickX = bounds.origin.x + bounds.width * xRatio
+
+        return CGPoint(x: clickX, y: clickY)
     }
 
     private func frontmostWindowBounds(for pid: pid_t) -> CGRect? {
@@ -885,6 +1101,9 @@ final class TextInsertionService {
         ) as? [[String: Any]] else {
             return nil
         }
+
+        var best: CGRect?
+        var bestArea: CGFloat = 0
 
         for windowInfo in windowInfoList {
             let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? Int32
@@ -896,10 +1115,16 @@ final class TextInsertionService {
                 continue
             }
 
-            return bounds
+            let area = bounds.width * bounds.height
+            guard area >= 14_000 else { continue }
+
+            if area > bestArea {
+                bestArea = area
+                best = bounds
+            }
         }
 
-        return nil
+        return best
     }
 
     private func prefersTypingFallback(
@@ -1124,13 +1349,20 @@ final class TextInsertionService {
     }
 
     private func waitForShortcutModifiersToRelease() {
-        let relevantFlags: CGEventFlags = [
-            .maskCommand,
-            .maskControl,
-            .maskAlternate,
-            .maskShift,
-            .maskSecondaryFn
-        ]
+        let shortcut = KeyboardShortcutStore.load(.fieldInsert)
+        var relevantFlags = CGEventFlags()
+        if shortcut.modifiers.contains(.command) { relevantFlags.insert(.maskCommand) }
+        if shortcut.modifiers.contains(.control) { relevantFlags.insert(.maskControl) }
+        if shortcut.modifiers.contains(.option) { relevantFlags.insert(.maskAlternate) }
+        if shortcut.modifiers.contains(.shift) { relevantFlags.insert(.maskShift) }
+
+        // Page Up / Page Down frequently report a transient Fn bit in `combinedSessionState`
+        // even though the shortcut itself has no supported modifiers. Waiting for that bit to
+        // clear delays or blocks the follow-up paste/type events and leaves Electron editors empty.
+        if relevantFlags.isEmpty {
+            appendDebugTrace("modifier_wait_skipped=no_supported_shortcut_modifiers")
+            return
+        }
 
         let initialFlags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
         if !initialFlags.isEmpty {

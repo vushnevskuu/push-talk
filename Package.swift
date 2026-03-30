@@ -9,7 +9,7 @@ let package = Package(
     products: [
         .executable(
             name: "VoiceInsert",
-            targets: ["VoiceInsertApp"]
+            targets: ["VoiceInsert"]
         ),
         .executable(
             name: "VoiceInsertInjector",
@@ -18,7 +18,8 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "VoiceInsertApp"
+            name: "VoiceInsert",
+            path: "Sources/VoiceInsertApp"
         ),
         .executableTarget(
             name: "VoiceInsertInjector"

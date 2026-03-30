@@ -27,10 +27,6 @@ private struct RecognitionCallbackError: LocalizedError, Sendable {
 @MainActor
 final class SpeechRecognitionService {
     private let audioEngine = AVAudioEngine()
-    /// Short-lived mic-only warmup (no speech task). Reduces “missing first words” on Bluetooth headsets after the engine was fully stopped.
-    private var isPrewarmCaptureActive = false
-    private var capturePrewarmTask: Task<Void, Never>?
-    private var lastMicrophoneRoutePrewarmAt: Date?
     private var isTapInstalled = false
     private var cachedRecognizer: SFSpeechRecognizer?
     private var cachedLocaleIdentifier: String?
@@ -51,20 +47,14 @@ final class SpeechRecognitionService {
         _ = recognizer(for: locale)
     }
 
-    /// Warms the system default input (often switches Bluetooth to recording profile) before the user presses the dictation shortcut.
-    func scheduleMicrophoneRoutePrewarmIfNeeded() {
-        capturePrewarmTask?.cancel()
-        capturePrewarmTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(for: .milliseconds(320))
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            await self.runMicrophoneRoutePrewarm(throttleInterval: 90)
-            self.capturePrewarmTask = nil
-        }
+    /// Prepares the engine graph and touches the input node format without starting the mic — trims some first-session latency.
+    func prepareInputGraphIfIdle() {
+        guard recognitionRequest == nil, recognitionTask == nil else { return }
+        guard !audioEngine.isRunning else { return }
+
+        let inputNode = audioEngine.inputNode
+        _ = inputNode.outputFormat(forBus: 0)
+        audioEngine.prepare()
     }
 
     func startSession(
@@ -157,10 +147,6 @@ final class SpeechRecognitionService {
     }
 
     func cancelSession() {
-        capturePrewarmTask?.cancel()
-        capturePrewarmTask = nil
-        stopPrewarmCaptureOnly()
-
         finishTimeoutTask?.cancel()
         finishTimeoutTask = nil
 
@@ -242,56 +228,7 @@ final class SpeechRecognitionService {
         }
     }
 
-    private func stopPrewarmCaptureOnly() {
-        guard isPrewarmCaptureActive else { return }
-        isPrewarmCaptureActive = false
-        guard audioEngine.isRunning else { return }
-        audioEngine.inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
-    }
-
-    private func runMicrophoneRoutePrewarm(throttleInterval: TimeInterval) async {
-        guard recognitionRequest == nil, recognitionTask == nil else { return }
-        guard !audioEngine.isRunning else { return }
-        if let last = lastMicrophoneRoutePrewarmAt,
-           Date().timeIntervalSince(last) < throttleInterval {
-            return
-        }
-        lastMicrophoneRoutePrewarmAt = Date()
-        persistDebugSnapshot(state: "mic_route_prewarm_start")
-
-        let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        isPrewarmCaptureActive = true
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { _, _ in }
-        audioEngine.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            isPrewarmCaptureActive = false
-            inputNode.removeTap(onBus: 0)
-            persistDebugSnapshot(state: "mic_route_prewarm_failed", errorMessage: error.localizedDescription)
-            return
-        }
-
-        defer {
-            if isPrewarmCaptureActive {
-                stopPrewarmCaptureOnly()
-            }
-        }
-
-        do {
-            try await Task.sleep(for: .milliseconds(620))
-        } catch {
-            return
-        }
-
-        persistDebugSnapshot(state: "mic_route_prewarm_done")
-    }
-
     private func stopAudioCapture() {
-        stopPrewarmCaptureOnly()
-
         if audioEngine.isRunning {
             audioEngine.stop()
         }

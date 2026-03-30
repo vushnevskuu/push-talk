@@ -66,7 +66,7 @@ struct PermissionSnapshot: Equatable {
 
             return accessibility == .authorized
                 ? "All permissions are active."
-                : "Required permissions are active. Accessibility is optional."
+                : "Microphone, speech recognition, and Input Monitoring are active. Turn on Accessibility for reliable typing and paste in other apps."
         }
 
         return "Missing required permissions: \(missing.joined(separator: ", "))."

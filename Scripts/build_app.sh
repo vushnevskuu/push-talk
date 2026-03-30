@@ -10,9 +10,11 @@ APP_DIR="$BUILD_DIR/$APP_NAME.app"
 INSTALL_DIR="$HOME/Applications/$APP_NAME.app"
 MAIN_PLIST="$ROOT_DIR/Resources/Info.plist"
 SIGNING_SCRIPT="$ROOT_DIR/Scripts/ensure_local_codesigning_identity.sh"
+LOCAL_SIGNING_IDENTITY_NAME="VoiceInsert Local Signing"
 
 cd "$ROOT_DIR"
-swift build -c release --product "$APP_NAME" --product "$HELPER_NAME"
+swift build -c release --product "$APP_NAME"
+swift build -c release --product "$HELPER_NAME"
 
 # SPM may place binaries only under .build/<arch>-apple-macosx/release (no .build/release symlink).
 REL_DIR="$ROOT_DIR/.build/arm64-apple-macosx/release"
@@ -49,8 +51,21 @@ chmod +x "$APP_DIR/Contents/Helpers/$HELPER_NAME"
 cp "$MAIN_PLIST" "$APP_DIR/Contents/Info.plist"
 
 if command -v codesign >/dev/null 2>&1; then
-  # Default: ad-hoc signing works for everyone cloning from GitHub (no Homebrew OpenSSL / custom identity).
-  if [[ "${VOICEINSERT_USE_LOCAL_IDENTITY:-}" == "1" && -x "$SIGNING_SCRIPT" ]]; then
+  use_local_identity=0
+  case "${VOICEINSERT_USE_LOCAL_IDENTITY:-auto}" in
+    1|true|yes)
+      use_local_identity=1
+      ;;
+    auto)
+      if [[ -x "$SIGNING_SCRIPT" ]] && security find-identity -v -p codesigning 2>/dev/null | grep -Fq "\"$LOCAL_SIGNING_IDENTITY_NAME\""; then
+        use_local_identity=1
+      fi
+      ;;
+  esac
+
+  # Prefer the persistent local identity when it already exists so TCC/Input Monitoring grants
+  # survive rebuilds. Fall back to ad-hoc signing for fresh clones or CI.
+  if [[ "$use_local_identity" == "1" && -x "$SIGNING_SCRIPT" ]]; then
     SIGNING_OUTPUT="$("$SIGNING_SCRIPT")"
     SIGNING_IDENTITY="${SIGNING_OUTPUT%%|*}"
     SIGNING_KEYCHAIN="${SIGNING_OUTPUT#*|}"
@@ -75,4 +90,11 @@ else
   rm -rf "$INSTALL_DIR"
   cp -R "$APP_DIR" "$INSTALL_DIR"
   echo "Installed app at: $INSTALL_DIR"
+
+  # Keep a single local app copy by default so macOS privacy panes do not show
+  # duplicate VoiceInsert entries from both ~/Applications and Build/.
+  if [[ "${VOICEINSERT_KEEP_BUILD_APP:-0}" != "1" ]]; then
+    rm -rf "$APP_DIR"
+    echo "Removed temporary build app at: $APP_DIR"
+  fi
 fi
