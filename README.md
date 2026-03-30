@@ -7,6 +7,8 @@
 
 ## Repository status
 
+**CI:** each push/PR runs [VoiceInsert build](.github/workflows/voiceinsert-build.yml) on GitHub (`swift build` + `Scripts/build_app.sh`) so broken installs are caught before users clone.
+
 This repo contains a working SwiftUI + AppKit MVP:
 
 - Floating hold-to-talk button (mouse)
@@ -14,7 +16,7 @@ This repo contains a working SwiftUI + AppKit MVP:
 - Speech recognition via `Speech`
 - Text insertion into the focused field via Accessibility API
 - Fallback using `Cmd+V` and a temporary pasteboard
-- `.app` packaging via `Scripts/build_app.sh`
+- `.app` packaging via `Scripts/build_app.sh` or `Scripts/install_voiceinsert_app.sh` (installs to `~/Applications` with ad-hoc codesign)
 - A separate shortcut and vault picker for **Obsidian** (notes under `Voice Captures/` inside the vault)
 
 For vault layout and where responsibility ends, see **[docs/obsidian-files.md](docs/obsidian-files.md)**.
@@ -24,23 +26,42 @@ For vault layout and where responsibility ends, see **[docs/obsidian-files.md](d
 ### Quick start
 
 1. Open Terminal at the project root.
-2. Build the app:
+2. Install a **Swift 6** toolchain (e.g. Xcode 16+ or matching Command Line Tools) — the package uses `swift-tools-version: 6.0`.
+3. Build and install:
 
 ```bash
 ./Scripts/build_app.sh
 ```
 
-3. Output path:
+This resolves release binaries under `.build/…/release` (Apple Silicon and Intel), signs the bundle **ad hoc** (`codesign -`) by default so you do **not** need Homebrew OpenSSL or a custom signing identity. To use the optional local identity + keychain script instead:
+
+```bash
+VOICEINSERT_USE_LOCAL_IDENTITY=1 ./Scripts/build_app.sh
+```
+
+Alternative (same layout as manual QA builds):
+
+```bash
+./Scripts/install_voiceinsert_app.sh
+```
+
+4. Output path from `build_app.sh`:
 
 ```text
 Build/VoiceInsert.app
 ```
 
-4. Launch:
+Also copies to `~/Applications/VoiceInsert.app`.
+
+5. Launch:
 
 ```bash
 open Build/VoiceInsert.app
+# or
+open ~/Applications/VoiceInsert.app
 ```
+
+**If `./Scripts/build_app.sh` fails** with “Could not find release binaries”, run `swift build -c release` once and check that `.build/arm64-apple-macosx/release/VoiceInsert` (or `x86_64-…`) exists — then upgrade Swift/Xcode if the toolchain is too old.
 
 ### Permissions
 
@@ -98,7 +119,7 @@ VoiceInsert is a lightweight menu bar utility: hold your shortcut, speak, releas
 ## Requirements
 
 - macOS 13+ recommended
-- Xcode 15+ recommended
+- Xcode 16+ (or Swift 6 toolchain) recommended for `swift-tools-version: 6.0`
 - Apple Silicon or Intel Mac
 - Microphone access
 - Speech Recognition permission

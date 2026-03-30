@@ -27,11 +27,30 @@ identity_exists() {
   security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null | grep -Fq "\"$IDENTITY_NAME\""
 }
 
+resolve_openssl() {
+  if [[ -n "${OPENSSL:-}" && -x "$OPENSSL" ]]; then
+    printf '%s' "$OPENSSL"
+    return 0
+  fi
+  for candidate in /opt/homebrew/bin/openssl /usr/local/opt/openssl/bin/openssl /usr/bin/openssl; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 create_identity() {
   local tmpdir
   tmpdir="$(mktemp -d)"
+  local openssl_bin
+  openssl_bin="$(resolve_openssl)" || {
+    echo "openssl not found (install Xcode CLT or Homebrew openssl); set OPENSSL=/path/to/openssl" >&2
+    exit 1
+  }
 
-  /opt/homebrew/bin/openssl req \
+  "$openssl_bin" req \
     -x509 \
     -newkey rsa:2048 \
     -keyout "$tmpdir/key.pem" \
@@ -43,7 +62,7 @@ create_identity() {
     -addext "keyUsage=critical,digitalSignature" \
     -addext "extendedKeyUsage=codeSigning" >/dev/null 2>&1
 
-  /opt/homebrew/bin/openssl pkcs12 \
+  "$openssl_bin" pkcs12 \
     -export \
     -legacy \
     -inkey "$tmpdir/key.pem" \

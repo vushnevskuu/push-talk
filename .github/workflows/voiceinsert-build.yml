@@ -1,0 +1,37 @@
+# Verifies that VoiceInsert builds from a clean clone (swift build + Scripts/build_app.sh).
+
+name: VoiceInsert build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Swift toolchain
+        run: swift --version
+
+      - name: Swift PM release build
+        run: |
+          set -euo pipefail
+          swift build -c release --product VoiceInsert --product VoiceInsertInjector
+
+      - name: Assemble .app (build_app.sh)
+        run: |
+          set -euo pipefail
+          chmod +x Scripts/build_app.sh Scripts/ensure_local_codesigning_identity.sh
+          ./Scripts/build_app.sh
+
+      - name: Check bundle layout
+        run: |
+          set -euo pipefail
+          test -f Build/VoiceInsert.app/Contents/Info.plist
+          test -x Build/VoiceInsert.app/Contents/MacOS/VoiceInsert
+          test -x Build/VoiceInsert.app/Contents/Helpers/VoiceInsertInjector
