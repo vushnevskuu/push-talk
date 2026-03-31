@@ -696,12 +696,19 @@ final class AppModel: ObservableObject {
             return
         }
 
+        // Autotest uses a temporary vault path in UserDefaults; do not leave it as the in-app vault
+        // or the user's Obsidian shortcut will target the wrong folder (or nil) after the test.
+        let savedUserVaultPath = obsidianVaultPath
+        obsidianVaultPath = vaultPath
+        defer {
+            obsidianVaultPath = savedUserVaultPath
+        }
+
         liveTranscript = ""
         resetAudioVisualization()
         activeCaptureDestination = .obsidianVault
         activeInsertionTarget = nil
         activeObsidianAutotestTriggerToken = triggerToken
-        obsidianVaultPath = vaultPath
         phase = .transcribing
         persistRuntimeDebugState()
         statusMessage = "Running Obsidian capture test..."
@@ -709,7 +716,9 @@ final class AppModel: ObservableObject {
     }
 
     private func finishCapture(_ transcript: String, destination: CaptureDestination) async {
-        let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTranscript = transcript
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .strippingVoiceInsertAutotestTokens()
 
         guard !trimmedTranscript.isEmpty else {
             phase = .idle
@@ -934,6 +943,22 @@ final class AppModel: ObservableObject {
 
     private func recordHotkeyActivation(for destination: CaptureDestination) {
         UserDefaults.standard.set(destination.debugValue, forKey: DefaultsKey.debugLastStartedDestination)
+    }
+}
+
+private extension String {
+    /// Smoke tests use `VOICEINSERT_VERIFY_<hex>`; it can end up inside the recognized string (clipboard/UI/timing).
+    func strippingVoiceInsertAutotestTokens() -> String {
+        guard let regex = try? NSRegularExpression(pattern: "VOICEINSERT_VERIFY_[0-9a-fA-F]+", options: []) else {
+            return self
+        }
+        let mutable = NSMutableString(string: self)
+        regex.replaceMatches(in: mutable, options: [], range: NSRange(location: 0, length: mutable.length), withTemplate: " ")
+        var result = String(mutable)
+        while result.contains("  ") {
+            result = result.replacingOccurrences(of: "  ", with: " ")
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
