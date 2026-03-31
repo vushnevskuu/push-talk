@@ -56,6 +56,8 @@ enum EventInjectorMode {
                 // #endregion
             }
 
+            waitForMouseButtonsToRelease()
+
             if let clickPoint = options.clickPoint {
                 try click(at: clickPoint)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.08))
@@ -136,6 +138,18 @@ enum EventInjectorMode {
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
         return pid
+    }
+
+    private static func waitForMouseButtonsToRelease() {
+        let deadline = Date().addingTimeInterval(0.35)
+        while Date() < deadline {
+            if !CGEventSource.buttonState(.combinedSessionState, button: .left) {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
     }
 
     private static func click(at point: CGPoint) throws {
@@ -254,6 +268,7 @@ enum EventInjectorMode {
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
         commandUp.post(tap: .cghidEventTap)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
     }
 
     private static func chunked(_ text: String, maxCharacters: Int) -> [String] {
