@@ -27,6 +27,7 @@ final class HotkeyMonitor {
     private var eventHandlerUPP: EventHandlerUPP?
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
+    private var eventTapMode: EventTapMode?
     private var localKeyDownMonitor: Any?
     private var localKeyUpMonitor: Any?
 
@@ -101,10 +102,55 @@ final class HotkeyMonitor {
 
     private func installGlobalMonitor() -> Bool {
         if shouldPreferEventTap, installEventTap() {
+            AgentDebugLog.append(
+                hypothesisId: "H0",
+                location: "HotkeyMonitor.installGlobalMonitor",
+                message: "path_event_tap_primary",
+                data: ["preferTap": "true"]
+            )
             return true
         }
 
-        return installGlobalHotKey()
+        // Bare keys like Page Up / arrows / letters need a real event tap. Carbon hotkeys can appear
+        // to register successfully here while still failing to intercept those keys globally.
+        if shouldPreferEventTap {
+            AgentDebugLog.append(
+                hypothesisId: "H0",
+                location: "HotkeyMonitor.installGlobalMonitor",
+                message: "path_event_tap_required_but_unavailable",
+                data: ["keyCode": "\(shortcut.keyCode)"]
+            )
+            return false
+        }
+
+        if installGlobalHotKey() {
+            AgentDebugLog.append(
+                hypothesisId: "H1",
+                location: "HotkeyMonitor.installGlobalMonitor",
+                message: "path_carbon_hotkey_ok",
+                data: ["preferTap": shouldPreferEventTap ? "true" : "false"]
+            )
+            return true
+        }
+
+        // Carbon `RegisterEventHotKey` may fail while Input Monitoring still allows a session tap.
+        if installEventTap() {
+            AgentDebugLog.append(
+                hypothesisId: "H2",
+                location: "HotkeyMonitor.installGlobalMonitor",
+                message: "path_event_tap_after_carbon_fail",
+                data: ["preferTap": shouldPreferEventTap ? "true" : "false"]
+            )
+            return true
+        }
+
+        AgentDebugLog.append(
+            hypothesisId: "H3",
+            location: "HotkeyMonitor.installGlobalMonitor",
+            message: "path_global_install_failed",
+            data: ["preferTap": shouldPreferEventTap ? "true" : "false"]
+        )
+        return false
     }
 
     private var shouldPreferEventTap: Bool {
@@ -162,6 +208,13 @@ final class HotkeyMonitor {
 
         if registerStatus == noErr {
             registeredHotKeyID = hotKeyID
+        } else {
+            AgentDebugLog.append(
+                hypothesisId: "H1",
+                location: "HotkeyMonitor.installGlobalHotKey",
+                message: "RegisterEventHotKey_failed",
+                data: ["status": "\(registerStatus)"]
+            )
         }
 
         return registerStatus == noErr
@@ -194,24 +247,47 @@ final class HotkeyMonitor {
             return monitor.handleEventTapEvent(proxy: proxy, type: type, event: event)
         }
 
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: eventMask,
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else {
-            return false
+        let tapModes: [EventTapMode] = [.suppressing, .observeOnly]
+
+        for mode in tapModes {
+            guard let tap = CGEvent.tapCreate(
+                tap: .cgSessionEventTap,
+                place: .headInsertEventTap,
+                options: mode.tapOptions,
+                eventsOfInterest: eventMask,
+                callback: callback,
+                userInfo: Unmanaged.passUnretained(self).toOpaque()
+            ) else {
+                AgentDebugLog.append(
+                    hypothesisId: "H3",
+                    location: "HotkeyMonitor.installEventTap",
+                    message: "CGEvent_tapCreate_nil",
+                    data: ["mode": mode.rawValue]
+                )
+                continue
+            }
+
+            let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+
+            eventTap = tap
+            eventTapRunLoopSource = runLoopSource
+            eventTapMode = mode
+
+            if mode == .observeOnly {
+                AgentDebugLog.append(
+                    hypothesisId: "H2",
+                    location: "HotkeyMonitor.installEventTap",
+                    message: "CGEvent_tapCreate_observe_only_fallback",
+                    data: [:]
+                )
+            }
+
+            return true
         }
 
-        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-
-        eventTap = tap
-        eventTapRunLoopSource = runLoopSource
-        return true
+        return false
     }
 
     private func removeEventTap() {
@@ -224,6 +300,8 @@ final class HotkeyMonitor {
             CGEvent.tapEnable(tap: eventTap, enable: false)
             self.eventTap = nil
         }
+
+        eventTapMode = nil
     }
 
     private func handleRegisteredHotKey(_ event: EventRef?) -> OSStatus {
@@ -273,7 +351,8 @@ final class HotkeyMonitor {
                 dispatchRelease()
             }
 
-            return decision.shouldSuppress ? nil : Unmanaged.passUnretained(event)
+            let canSuppress = eventTapMode == .suppressing
+            return decision.shouldSuppress && canSuppress ? nil : Unmanaged.passUnretained(event)
 
         default:
             return Unmanaged.passUnretained(event)
@@ -401,10 +480,9 @@ final class HotkeyMonitor {
                 return KeyEventDecision(shouldSuppress: false, triggerPress: false, triggerRelease: false)
             }
 
-            if isPhysicalKeyStillDown(keyCode: keyCode) {
-                return KeyEventDecision(shouldSuppress: true, triggerPress: false, triggerRelease: false)
-            }
-
+            // `keyUp` is already the release signal we care about. Polling the combined session state here
+            // can lag on newer macOS builds, especially with listen-only taps, and leave the app stuck in
+            // recording mode after the user releases Page Up / Page Down.
             isPressed = false
             return KeyEventDecision(shouldSuppress: true, triggerPress: false, triggerRelease: true)
 
@@ -509,4 +587,18 @@ private struct KeyEventDecision {
 private enum CallbackKind {
     case press
     case release
+}
+
+private enum EventTapMode: String {
+    case suppressing
+    case observeOnly
+
+    var tapOptions: CGEventTapOptions {
+        switch self {
+        case .suppressing:
+            return .defaultTap
+        case .observeOnly:
+            return .listenOnly
+        }
+    }
 }

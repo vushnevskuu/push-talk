@@ -4,8 +4,10 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
+    private weak var model: AppModel?
 
     init(model: AppModel) {
+        self.model = model
         let hostingView = NSHostingView(rootView: SettingsView(model: model))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 980, height: 760),
@@ -35,5 +37,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func close() {
         window.close()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        model?.clearShortcutRecordingSessionIfNeeded()
     }
 }

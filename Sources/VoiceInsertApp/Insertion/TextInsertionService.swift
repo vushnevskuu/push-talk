@@ -6,6 +6,7 @@ import Foundation
 enum TextInsertionError: LocalizedError {
     case eventCreationFailed
     case automationPermissionDenied
+    case accessibilityPermissionDenied
 
     var errorDescription: String? {
         switch self {
@@ -13,6 +14,8 @@ enum TextInsertionError: LocalizedError {
             return "Couldn't send the input event."
         case .automationPermissionDenied:
             return "Allow VoiceInsert to control System Events, then try dictation again."
+        case .accessibilityPermissionDenied:
+            return "Turn on Accessibility for VoiceInsert. Without it, text can't be inserted into apps like Cursor."
         }
     }
 }
@@ -38,6 +41,7 @@ private struct RecordedClick {
 
 private struct MouseDownSample: Sendable {
     let location: CGPoint
+    let canUpdateExternalTarget: Bool
 }
 
 private struct HelperRunResult: Sendable {
@@ -85,8 +89,15 @@ final class TextInsertionService {
         let focusedElement = includeFocusedElement && AXIsProcessTrusted()
             ? focusedUIElement(for: effectivePID) ?? (frontmostPID == effectivePID ? focusedUIElement() : nil)
             : nil
-        let clickPoint = recentClickPoint(for: effectivePID)
-            ?? inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+        // У OpenAI Codex недавний клик по центру окна часто бьёт в сайдбар; геометрия композера стабильнее.
+        let clickPoint: CGPoint?
+        if bundleIdentifier == "com.openai.codex" {
+            clickPoint = inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+                ?? recentClickPoint(for: effectivePID)
+        } else {
+            clickPoint = recentClickPoint(for: effectivePID)
+                ?? inferredClickPoint(for: effectivePID, bundleIdentifier: bundleIdentifier)
+        }
 
         return TextInsertionTarget(
             focusedElement: focusedElement,
@@ -96,14 +107,112 @@ final class TextInsertionService {
         )
     }
 
+    /// Snapshot for the start of hold-to-dictate: PID/bundle + last mouse click only.
+    /// Skips AX and `CGWindowListCopyWindowInfo` (used for Codex/Cursor composer inference) so the main thread
+    /// doesn’t stall before `SpeechRecognitionService.startSession()`.
+    func captureTargetForHoldStart() -> TextInsertionTarget {
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let frontmostPID = frontmostApplication?.processIdentifier
+        let effectivePID = resolvedTargetPID(frontmostPID: frontmostPID)
+        let effectiveApplication: NSRunningApplication?
+        if let effectivePID, effectivePID == frontmostPID {
+            effectiveApplication = frontmostApplication
+        } else if let effectivePID {
+            effectiveApplication = NSRunningApplication(processIdentifier: effectivePID)
+        } else {
+            effectiveApplication = frontmostApplication
+        }
+        let bundleIdentifier = effectiveApplication?.bundleIdentifier
+        let clickPoint = recentClickPoint(for: effectivePID)
+
+        return TextInsertionTarget(
+            focusedElement: nil,
+            frontmostAppPID: effectivePID,
+            clickPoint: clickPoint,
+            frontmostBundleIdentifier: bundleIdentifier
+        )
+    }
+
+    /// After dictation the frontmost app may still be VoiceInsert; refresh AX/cursor state while keeping useful stale fields (e.g. click fallbacks).
+    private func mergeWithFreshCapture(stale: TextInsertionTarget?) -> TextInsertionTarget {
+        let fresh = captureTarget(includeFocusedElement: true)
+        guard let stale else { return fresh }
+
+        // When HUD/settings focus VoiceInsert, `resolvedTargetPID` can fall back to nil and `captureTarget`
+        // may report our bundle — overwriting `stale` from key-down would send paste/typing to the wrong app.
+        if isInsertionTargetSelfApp(fresh) {
+            return TextInsertionTarget(
+                focusedElement: stale.focusedElement ?? fresh.focusedElement,
+                frontmostAppPID: stale.frontmostAppPID,
+                clickPoint: mergedClickPointForInsert(stale: stale, fresh: fresh),
+                frontmostBundleIdentifier: stale.frontmostBundleIdentifier
+            )
+        }
+
+        // `insert` already called `reactivateTargetAppIfNeeded` before merge; a fresh capture can still report
+        // another app momentarily (activation lag). Keep the hold bundle/PID for Cursor so we don't paste into the wrong app.
+        if let staleBid = stale.frontmostBundleIdentifier,
+           staleBid.hasPrefix("com.todesktop."),
+           let freshBid = fresh.frontmostBundleIdentifier,
+           freshBid != staleBid,
+           !isInsertionTargetSelfApp(fresh) {
+            return TextInsertionTarget(
+                focusedElement: stale.focusedElement ?? fresh.focusedElement,
+                frontmostAppPID: stale.frontmostAppPID,
+                clickPoint: mergedClickPointForInsert(stale: stale, fresh: fresh),
+                frontmostBundleIdentifier: stale.frontmostBundleIdentifier
+            )
+        }
+
+        return TextInsertionTarget(
+            focusedElement: fresh.focusedElement ?? stale.focusedElement,
+            frontmostAppPID: fresh.frontmostAppPID ?? stale.frontmostAppPID,
+            clickPoint: mergedClickPointForInsert(stale: stale, fresh: fresh),
+            frontmostBundleIdentifier: fresh.frontmostBundleIdentifier ?? stale.frontmostBundleIdentifier
+        )
+    }
+
+    /// Cursor: prefer the hold-start click over `fresh`'s inferred bottom-window point so merge doesn't overwrite
+    /// the user's real target with `codexComposerClickPoint`.
+    private func mergedClickPointForInsert(stale: TextInsertionTarget, fresh: TextInsertionTarget) -> CGPoint? {
+        if stale.frontmostBundleIdentifier?.hasPrefix("com.todesktop.") == true {
+            return stale.clickPoint ?? recentClickPoint(for: stale.frontmostAppPID) ?? fresh.clickPoint
+        }
+        return fresh.clickPoint ?? stale.clickPoint
+    }
+
+    private func isInsertionTargetSelfApp(_ target: TextInsertionTarget) -> Bool {
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        if let pid = target.frontmostAppPID, pid == selfPID {
+            return true
+        }
+        if let bid = target.frontmostBundleIdentifier, bid == Bundle.main.bundleIdentifier {
+            return true
+        }
+        return false
+    }
+
     func insert(text: String, target: TextInsertionTarget?) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
 
-        beginDebugTrace(text: trimmedText, target: target)
+        guard AXIsProcessTrusted() else {
+            beginDebugTrace(text: trimmedText, target: target)
+            appendDebugTrace("insert_blocked=accessibility_denied")
+            throw TextInsertionError.accessibilityPermissionDenied
+        }
 
-        let focusedElement = target?.focusedElement
-            ?? focusedUIElement(for: target?.frontmostAppPID)
+        defer {
+            Self.persistInsertionTraceForSupport()
+        }
+
+        _ = reactivateTargetAppIfNeeded(target)
+        try await Task.sleep(for: .milliseconds(120))
+        let mergedTarget = mergeWithFreshCapture(stale: target)
+        beginDebugTrace(text: trimmedText, target: mergedTarget)
+
+        let focusedElement = mergedTarget.focusedElement
+            ?? focusedUIElement(for: mergedTarget.frontmostAppPID)
             ?? captureTarget().focusedElement
 
         if let focusedElement {
@@ -121,16 +230,16 @@ final class TextInsertionService {
         }
 
         if let focusedElement,
-           shouldSkipDirectAccessibilityInsert(for: target, focusedElement: focusedElement) {
+           shouldSkipDirectAccessibilityInsert(for: mergedTarget, focusedElement: focusedElement) {
             appendDebugTrace("direct_ax_insert=skipped_placeholder_backed")
         } else if focusedElement != nil,
-                  shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(target) {
+                  shouldSkipDirectAccessibilityInsertForPasteOnlyBundles(mergedTarget) {
             appendDebugTrace("direct_ax_insert=skipped_paste_only_bundle")
         } else if let focusedElement,
                   try insertDirectly(
                     text: trimmedText,
                     into: focusedElement,
-                    bundleIdentifier: target?.frontmostBundleIdentifier
+                    bundleIdentifier: mergedTarget.frontmostBundleIdentifier
                   ) {
             appendDebugTrace("direct_ax_insert=success")
             return
@@ -138,36 +247,138 @@ final class TextInsertionService {
             appendDebugTrace("direct_ax_insert=failed")
         }
 
-        if prefersTypingFallback(for: target, focusedElement: focusedElement) {
-            appendDebugTrace("bundle_specific_path=codex_menu_paste")
+        if prefersTypingFallback(for: mergedTarget, focusedElement: focusedElement) {
+            let prefersHelperTypingFirst = shouldPreferHelperTypingFallback(
+                beforePasteFor: mergedTarget,
+                focusedElement: focusedElement
+            )
 
-            if try insertViaMenuPaste(trimmedText, target: target, focusedElement: focusedElement) {
-                appendDebugTrace("menu_paste_path=success")
+            if prefersHelperTypingFirst {
+                appendDebugTrace("bundle_specific_path=cursor_helper_typing_first")
+                if try await insertViaHelperTyping(
+                    trimmedText,
+                    target: mergedTarget,
+                    axFocusedElement: focusedElement
+                ) {
+                    appendDebugTrace("helper_typing_path=success")
+                    return
+                }
+
+                appendDebugTrace("helper_typing_path=failed")
+            } else {
+                appendDebugTrace("bundle_specific_path=codex_menu_paste")
+            }
+
+            if !prefersHelperTypingFirst {
+                if try insertViaMenuPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                    appendDebugTrace("menu_paste_path=success")
+                    return
+                }
+
+                appendDebugTrace("menu_paste_path=failed")
+
+                if mergedTarget.frontmostBundleIdentifier == "com.openai.codex" {
+                    if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                        appendDebugTrace("pasteboard_path=success_codex_after_menu")
+                        return
+                    }
+                    appendDebugTrace("pasteboard_path=failed_codex_after_menu")
+                }
+            }
+
+            if prefersHelperTypingFirst {
+                if try await insertViaHelperPaste(
+                    trimmedText,
+                    target: mergedTarget,
+                    axFocusedElement: focusedElement
+                ) {
+                    appendDebugTrace("helper_paste_path=success")
+                    return
+                }
+
+                appendDebugTrace("helper_paste_path=failed")
+            } else {
+                // Electron/WebView editors often ignore paste even after the composer is reactivated.
+                // Fall back to a helper HID typer before asking for heavier Apple Events permissions.
+                if try await insertViaHelperPaste(
+                    trimmedText,
+                    target: mergedTarget,
+                    axFocusedElement: focusedElement
+                ) {
+                    appendDebugTrace("helper_paste_path=success")
+                    return
+                }
+
+                appendDebugTrace("helper_paste_path=failed")
+
+                if try await insertViaHelperTyping(
+                    trimmedText,
+                    target: mergedTarget,
+                    axFocusedElement: focusedElement
+                ) {
+                    appendDebugTrace("helper_typing_path=success")
+                    return
+                }
+
+                appendDebugTrace("helper_typing_path=failed")
+            }
+            if try insertViaSystemEventsPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                appendDebugTrace("system_events_paste_path=success")
                 return
             }
 
-            appendDebugTrace("menu_paste_path=failed")
-
-            if try await insertViaHelperTyping(trimmedText, target: target) {
-                appendDebugTrace("helper_typing_path=success")
-                return
-            }
-
-            appendDebugTrace("helper_typing_path=failed")
-            try insertViaTyping(trimmedText, target: target, chunkSize: 24)
-            appendDebugTrace("typing_path=sent")
+            appendDebugTrace("system_events_paste_path=failed")
+            try insertViaSystemEventsTyping(trimmedText, target: mergedTarget, focusedElement: focusedElement)
+            appendDebugTrace("system_events_typing_path=sent")
             return
         }
 
-        if try insertViaPasteboard(trimmedText, target: target, focusedElement: focusedElement) {
+        if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
             appendDebugTrace("pasteboard_path=success")
             return
         }
 
         appendDebugTrace("pasteboard_path=failed")
 
-        try insertViaTyping(trimmedText, target: target, chunkSize: 8)
+        if canAttemptClickBasedHelperFallback(target: mergedTarget, focusedElement: focusedElement) {
+            if try await insertViaHelperPaste(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
+                appendDebugTrace("helper_paste_path=success")
+                return
+            }
+
+            appendDebugTrace("helper_paste_path=failed")
+
+            if try await insertViaHelperTyping(
+                trimmedText,
+                target: mergedTarget,
+                axFocusedElement: focusedElement
+            ) {
+                appendDebugTrace("helper_typing_path=success")
+                return
+            }
+
+            appendDebugTrace("helper_typing_path=failed")
+        }
+
+        try insertViaTyping(trimmedText, target: mergedTarget, chunkSize: 8, axFocusedElement: focusedElement)
         appendDebugTrace("typing_path=sent")
+    }
+
+    private nonisolated static func persistInsertionTraceForSupport() {
+        let text = UserDefaults.standard.string(forKey: DefaultsKey.lastInsertionDebug) ?? ""
+        guard !text.isEmpty else { return }
+
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let dir = base.appendingPathComponent("VoiceInsert", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fileURL = dir.appendingPathComponent("insert-trace.txt", isDirectory: false)
+        try? text.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
     private func focusedUIElement() -> AXUIElement? {
@@ -333,6 +544,32 @@ final class TextInsertionService {
         }
     }
 
+    /// Web/Electron composers (LinkedIn, etc.) often react to `NSPasteboard.general` updates; restoring a snapshot
+    /// can re-publish an image, file URL, or **plain text** the user had copied earlier—so the page inserts it again
+    /// even when our Cmd+V already pasted the transcript (AX verification often lags, so we used to `restore` on “failure”).
+    private static func shouldClearPasteboardInsteadOfRestoring(into target: TextInsertionTarget?) -> Bool {
+        guard let id = target?.frontmostBundleIdentifier else { return false }
+        if id.hasPrefix("com.todesktop.") { return true }
+        if id == "com.openai.codex" { return true }
+        return unverifiablePasteBundleIdentifiers.contains(id)
+    }
+
+    private func restorePasteboardAfterInsertAttempt(snapshot: PasteboardSnapshot, target: TextInsertionTarget?, success: Bool) {
+        if success {
+            if Self.shouldClearPasteboardInsteadOfRestoring(into: target) {
+                NSPasteboard.general.clearContents()
+            } else {
+                snapshot.restore(omitImageTypes: true)
+            }
+        } else {
+            if Self.shouldClearPasteboardInsteadOfRestoring(into: target) {
+                NSPasteboard.general.clearContents()
+            } else {
+                snapshot.restore(omitImageTypes: false)
+            }
+        }
+    }
+
     private func insertViaPasteboard(
         _ text: String,
         target: TextInsertionTarget?,
@@ -346,66 +583,131 @@ final class TextInsertionService {
 
         do {
             let targetPID = reactivateTargetAppIfNeeded(target)
+            waitForMouseButtonsToRelease()
             try restoreInteractionTarget(target, focusedElement: focusedElement)
             waitForShortcutModifiersToRelease()
 
-            if Self.isCursorLikeApp(target) {
-                try simulateSelectAllShortcut(targetPID: targetPID)
-            }
+            try cursorSelectAllIfNeeded(target: target, focusedElement: focusedElement, targetPID: targetPID)
 
             try simulatePasteShortcut(targetPID: targetPID)
             let verification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
 
             if verification == true {
-                snapshot.restore()
+                restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: true)
                 return true
             }
 
             if verification == false {
                 if shouldSkipMenuPasteRetryAfterCmdV(for: target) {
                     appendDebugTrace("pasteboard_menu_retry=skipped_ax_lag_single_shot")
-                    snapshot.restore()
+                    restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: true)
                     return true
                 }
                 if performPasteMenuAction(on: targetPID) {
                     let menuVerification = waitForTextInsertion(text, in: focusedElement, baseline: baseline)
-                    snapshot.restore()
-                    return menuVerification ?? false
+                    let ok = menuVerification ?? false
+                    restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: ok)
+                    return ok
                 }
             }
 
             if verification == nil {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-                if shouldAssumePasteSucceededWithoutVerification(for: target) {
+                if shouldAssumePasteSucceededWithoutVerification(for: target),
+                   !canAttemptClickBasedHelperFallback(target: target, focusedElement: focusedElement) {
                     appendDebugTrace("pasteboard_verification=assumed_success_without_ax")
-                    snapshot.restore()
+                    restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: true)
                     return true
                 }
-                snapshot.restore()
+                restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
                 return false
             }
 
-            snapshot.restore()
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
             return false
         } catch {
-            snapshot.restore()
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
             throw error
         }
     }
 
-    private func insertViaTyping(_ text: String, target: TextInsertionTarget?, chunkSize: Int) throws {
+    private func canAttemptClickBasedHelperFallback(
+        target: TextInsertionTarget?,
+        focusedElement: AXUIElement?
+    ) -> Bool {
+        focusedElement == nil && target?.clickPoint != nil
+    }
+
+    private func insertViaTyping(_ text: String, target: TextInsertionTarget?, chunkSize: Int, axFocusedElement: AXUIElement?) throws {
         let targetPID = reactivateTargetAppIfNeeded(target)
-        try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
+        waitForMouseButtonsToRelease()
+        try restoreInteractionTarget(target, focusedElement: axFocusedElement ?? target?.focusedElement)
         waitForShortcutModifiersToRelease()
 
-        if Self.isCursorLikeApp(target) {
-            try simulateSelectAllShortcut(targetPID: targetPID)
-        }
+        try cursorSelectAllIfNeeded(target: target, focusedElement: axFocusedElement, targetPID: targetPID)
 
         try simulateTyping(text, targetPID: targetPID, chunkSize: chunkSize)
     }
 
-    private func insertViaHelperTyping(_ text: String, target: TextInsertionTarget?) async throws -> Bool {
+    /// Cmd+A without a real AX text target often hits the wrong Electron control (sidebar, palette); skip when we only have click-based restore.
+    private func cursorSelectAllIfNeeded(
+        target: TextInsertionTarget?,
+        focusedElement: AXUIElement?,
+        targetPID: pid_t?
+    ) throws {
+        guard Self.isCursorLikeApp(target) else { return }
+        guard focusedElement != nil else {
+            appendDebugTrace("cursor_select_all=skipped_no_ax_focus")
+            return
+        }
+        try simulateSelectAllShortcut(targetPID: targetPID)
+    }
+
+    private func insertViaHelperTyping(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?
+    ) async throws -> Bool {
+        try await runHelperInsertion(
+            text,
+            target: target,
+            axFocusedElement: axFocusedElement,
+            extraArguments: []
+        )
+    }
+
+    private func insertViaHelperPaste(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?
+    ) async throws -> Bool {
+        let snapshot = PasteboardSnapshot.capture()
+        do {
+            let ok = try await runHelperInsertion(
+                text,
+                target: target,
+                axFocusedElement: axFocusedElement,
+                extraArguments: ["--paste"]
+            )
+            if ok {
+                // Electron/WebView targets can consume the general pasteboard a moment after Cmd+V arrives.
+                // Clearing/restoring it immediately after the helper exits can cancel an otherwise valid paste.
+                try? await Task.sleep(for: .milliseconds(220))
+            }
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: ok)
+            return ok
+        } catch {
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
+            throw error
+        }
+    }
+
+    private func runHelperInsertion(
+        _ text: String,
+        target: TextInsertionTarget?,
+        axFocusedElement: AXUIElement?,
+        extraArguments: [String]
+    ) async throws -> Bool {
         guard let helperURL = injectorExecutableURL() else {
             appendDebugTrace("helper_typing_error=missing_helper")
             return false
@@ -414,19 +716,21 @@ final class TextInsertionService {
         waitForShortcutModifiersToRelease()
         if Self.isCursorLikeApp(target) {
             let targetPID = reactivateTargetAppIfNeeded(target)
-            try restoreInteractionTarget(target, focusedElement: target?.focusedElement)
-            try simulateSelectAllShortcut(targetPID: targetPID)
+            waitForMouseButtonsToRelease()
+            try restoreInteractionTarget(target, focusedElement: axFocusedElement ?? target?.focusedElement)
+            try cursorSelectAllIfNeeded(target: target, focusedElement: axFocusedElement, targetPID: targetPID)
         }
 
-        var arguments: [String] = []
-        arguments.append("--event-injector")
+        var arguments: [String] = ["--event-injector"]
+        arguments.append(contentsOf: extraArguments)
 
-        if !Self.isCursorLikeApp(target), let bundleIdentifier = target?.frontmostBundleIdentifier {
+        if let bundleIdentifier = target?.frontmostBundleIdentifier {
             arguments.append(contentsOf: ["--bundle-id", bundleIdentifier])
         }
 
-        if !Self.isCursorLikeApp(target),
-           let clickPoint = target?.clickPoint {
+        if let target,
+           shouldReplaySyntheticClick(for: target),
+           let clickPoint = trustedClickPoint(for: target) {
             arguments.append(contentsOf: [
                 "--click-x",
                 String(describing: clickPoint.x),
@@ -436,6 +740,19 @@ final class TextInsertionService {
         }
 
         do {
+            let fm = NSWorkspace.shared.frontmostApplication
+            AgentDebugLog.append(
+                hypothesisId: "H4",
+                location: "TextInsertionService.swift:runHelperInsertion",
+                message: "before_runHelper",
+                data: [
+                    "frontmostPID": fm.map { String($0.processIdentifier) } ?? "nil",
+                    "frontmostBundle": fm?.bundleIdentifier ?? "nil",
+                    "targetPID": target?.frontmostAppPID.map(String.init) ?? "nil",
+                    "targetBundle": target?.frontmostBundleIdentifier ?? "nil",
+                    "mode": extraArguments.contains("--paste") ? "paste" : "typing"
+                ]
+            )
             let result = try await Self.runHelper(
                 executableURL: helperURL,
                 arguments: arguments,
@@ -464,27 +781,32 @@ final class TextInsertionService {
         pasteboard.setString(text, forType: .string)
         let baseline = snapshotTextState(of: focusedElement)
 
-        defer {
-            snapshot.restore()
-        }
-
         let targetPID = reactivateTargetAppIfNeeded(target)
+        waitForMouseButtonsToRelease()
         try restoreInteractionTarget(target, focusedElement: focusedElement)
         waitForShortcutModifiersToRelease()
 
-        if Self.isCursorLikeApp(target) {
-            try simulateSelectAllShortcut(targetPID: targetPID)
-        }
+        try cursorSelectAllIfNeeded(target: target, focusedElement: focusedElement, targetPID: targetPID)
 
         guard performPasteMenuAction(on: targetPID) else {
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
             return false
         }
 
         if let verification = waitForTextInsertion(text, in: focusedElement, baseline: baseline) {
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: verification)
             return verification
         }
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+
+        if shouldTreatUnverifiedMenuPasteAsFailure(for: target, focusedElement: focusedElement) {
+            appendDebugTrace("menu_paste_verification=unverified_retry_fallback")
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
+            return false
+        }
+
+        restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: true)
         return true
     }
 
@@ -498,24 +820,27 @@ final class TextInsertionService {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        defer {
-            snapshot.restore()
+        do {
+            _ = reactivateTargetAppIfNeeded(target)
+            waitForMouseButtonsToRelease()
+            try restoreInteractionTarget(target, focusedElement: focusedElement)
+
+            let success = try executeAppleScript("""
+            tell application "System Events"
+                keystroke "v" using command down
+            end tell
+            """)
+
+            if success {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            }
+
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: success)
+            return success
+        } catch {
+            restorePasteboardAfterInsertAttempt(snapshot: snapshot, target: target, success: false)
+            throw error
         }
-
-        _ = reactivateTargetAppIfNeeded(target)
-        try restoreInteractionTarget(target, focusedElement: focusedElement)
-
-        let success = try executeAppleScript("""
-        tell application "System Events"
-            keystroke "v" using command down
-        end tell
-        """)
-
-        if success {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-        }
-
-        return success
     }
 
     private func insertViaSystemEventsTyping(
@@ -524,6 +849,7 @@ final class TextInsertionService {
         focusedElement: AXUIElement?
     ) throws {
         _ = reactivateTargetAppIfNeeded(target)
+        waitForMouseButtonsToRelease()
         try restoreInteractionTarget(target, focusedElement: focusedElement)
 
         for line in text.components(separatedBy: .newlines) {
@@ -660,6 +986,8 @@ final class TextInsertionService {
                 throw TextInsertionError.eventCreationFailed
             }
 
+            keyDown.flags = []
+            keyUp.flags = []
             keyDown.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
             keyUp.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
 
@@ -763,13 +1091,64 @@ final class TextInsertionService {
     ) throws {
         if let focusedElement {
             restoreFocusIfPossible(on: focusedElement)
-        } else if Self.isCursorLikeApp(target) {
-            appendDebugTrace("restore_target=skip_click_cursor")
-        } else if let clickPoint = target?.clickPoint {
-            try simulateClick(at: clickPoint)
+        } else if let target {
+            if shouldReplaySyntheticClick(for: target), let click = trustedClickPoint(for: target) {
+                appendDebugTrace("restore_target=click_at_point")
+                try simulateClick(at: click)
+            } else if target.frontmostBundleIdentifier == "com.openai.codex" {
+                appendDebugTrace("restore_target=skip_click_codex")
+            } else if target.frontmostBundleIdentifier?.hasPrefix("com.todesktop.") == true {
+                appendDebugTrace("restore_target=skip_click_cursor")
+            } else if Self.isCursorLikeApp(target) {
+                appendDebugTrace("restore_target=skip_click_cursor_no_point")
+            }
         }
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    }
+
+    /// For Cursor (`com.todesktop.*`), prefer a recent real click when it looks like the editor area, but fall back
+    /// to an inferred composer point when the remembered click is clearly in the left rail/sidebar.
+    private func trustedClickPoint(for target: TextInsertionTarget) -> CGPoint? {
+        guard let pid = target.frontmostAppPID else { return nil }
+
+        if let bundleIdentifier = target.frontmostBundleIdentifier,
+           bundleIdentifier.hasPrefix("com.todesktop.") {
+            let recentPoint = recentClickPoint(for: pid) ?? target.clickPoint
+            let inferredPoint = inferredClickPoint(for: pid, bundleIdentifier: bundleIdentifier)
+
+            if let recentPoint,
+               shouldPreferInferredComposerPoint(
+                over: recentPoint,
+                pid: pid,
+                bundleIdentifier: bundleIdentifier
+               ),
+               let inferredPoint {
+                appendDebugTrace("cursor_click_point=inferred_composer")
+                return inferredPoint
+            }
+
+            return recentPoint ?? inferredPoint
+        }
+
+        return target.clickPoint
+    }
+
+    /// Cursor-like apps keep wide left rails; an old click there is a poor restore target after hold-to-talk.
+    /// Prefer the inferred bottom composer point when the remembered click is clearly in the rail.
+    private func shouldPreferInferredComposerPoint(
+        over recentPoint: CGPoint,
+        pid: pid_t,
+        bundleIdentifier: String
+    ) -> Bool {
+        guard bundleIdentifier.hasPrefix("com.todesktop."),
+              let bounds = frontmostWindowBounds(for: pid),
+              bounds.width > 0 else {
+            return false
+        }
+
+        let relativeX = (recentPoint.x - bounds.origin.x) / bounds.width
+        return relativeX < 0.28
     }
 
     private func restoreFocusIfPossible(on element: AXUIElement) {
@@ -805,6 +1184,8 @@ final class TextInsertionService {
     }
 
     private func recordMouseDown(_ sample: MouseDownSample) {
+        guard sample.canUpdateExternalTarget else { return }
+
         let currentPID = ProcessInfo.processInfo.processIdentifier
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != currentPID else {
@@ -819,9 +1200,13 @@ final class TextInsertionService {
         )
     }
 
-    nonisolated private static func mouseDownSample(from event: NSEvent) -> MouseDownSample {
+    nonisolated private static func mouseDownSample(
+        from event: NSEvent,
+        canUpdateExternalTarget: Bool
+    ) -> MouseDownSample {
         MouseDownSample(
-            location: event.cgEvent?.location ?? NSEvent.mouseLocation
+            location: event.cgEvent?.location ?? NSEvent.mouseLocation,
+            canUpdateExternalTarget: canUpdateExternalTarget
         )
     }
 
@@ -829,7 +1214,7 @@ final class TextInsertionService {
         service: TextInsertionService
     ) -> Any? {
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak service] event in
-            let sample = mouseDownSample(from: event)
+            let sample = mouseDownSample(from: event, canUpdateExternalTarget: true)
             Task { @MainActor [weak service] in
                 service?.recordMouseDown(sample)
             }
@@ -840,7 +1225,9 @@ final class TextInsertionService {
         service: TextInsertionService
     ) -> Any? {
         NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak service] event in
-            let sample = mouseDownSample(from: event)
+            // Our floating hold-to-talk panel is non-activating, so a click on it can arrive while the real target
+            // app is still frontmost. Keep the previous external click instead of replacing it with panel coordinates.
+            let sample = mouseDownSample(from: event, canUpdateExternalTarget: false)
             Task { @MainActor [weak service] in
                 service?.recordMouseDown(sample)
             }
@@ -863,19 +1250,26 @@ final class TextInsertionService {
         guard let pid, let bundleIdentifier else { return nil }
 
         if bundleIdentifier == "com.openai.codex" || bundleIdentifier.hasPrefix("com.todesktop.") {
-            return codexComposerClickPoint(for: pid)
+            return codexComposerClickPoint(for: pid, bundleIdentifier: bundleIdentifier)
         }
         return nil
     }
 
-    private func codexComposerClickPoint(for pid: pid_t) -> CGPoint? {
+    /// Вертикаль — нижняя зона окна (поле ввода). Горизонталь: у Codex левая навигация забирает фокус при клике в геометрический центр окна.
+    private func codexComposerClickPoint(for pid: pid_t, bundleIdentifier: String) -> CGPoint? {
         guard let bounds = frontmostWindowBounds(for: pid) else { return nil }
 
-        let screenMaxY = NSScreen.screens.map(\.frame.maxY).max() ?? NSScreen.main?.frame.maxY ?? 0
-        let topLeftComposerY = bounds.origin.y + bounds.height - 92
-        let convertedY = max(0, screenMaxY - topLeftComposerY)
+        let isOpenAICodex = bundleIdentifier == "com.openai.codex"
+        // У Codex левый rail широкий; поле ввода правее центра окна.
+        let bottomInset: CGFloat = isOpenAICodex ? 200 : 92
+        // `CGWindowList` bounds already line up with the click coordinates accepted by our CGEvent injector.
+        // Flipping Y here sends the fallback click far above the composer in Codex/Cursor.
+        let clickY = bounds.origin.y + bounds.height - bottomInset
 
-        return CGPoint(x: bounds.midX, y: convertedY)
+        let xRatio: CGFloat = isOpenAICodex ? 0.82 : 0.5
+        let clickX = bounds.origin.x + bounds.width * xRatio
+
+        return CGPoint(x: clickX, y: clickY)
     }
 
     private func frontmostWindowBounds(for pid: pid_t) -> CGRect? {
@@ -885,6 +1279,9 @@ final class TextInsertionService {
         ) as? [[String: Any]] else {
             return nil
         }
+
+        var best: CGRect?
+        var bestArea: CGFloat = 0
 
         for windowInfo in windowInfoList {
             let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? Int32
@@ -896,10 +1293,16 @@ final class TextInsertionService {
                 continue
             }
 
-            return bounds
+            let area = bounds.width * bounds.height
+            guard area >= 14_000 else { continue }
+
+            if area > bestArea {
+                bestArea = area
+                best = bounds
+            }
         }
 
-        return nil
+        return best
     }
 
     private func prefersTypingFallback(
@@ -910,6 +1313,40 @@ final class TextInsertionService {
         guard let bundleIdentifier = target?.frontmostBundleIdentifier else { return false }
 
         return bundleIdentifier == "com.openai.codex" || bundleIdentifier.hasPrefix("com.todesktop.")
+    }
+
+    private func shouldReplaySyntheticClick(for target: TextInsertionTarget?) -> Bool {
+        guard let bundleIdentifier = target?.frontmostBundleIdentifier else {
+            return target?.clickPoint != nil
+        }
+
+        if bundleIdentifier == "com.openai.codex" {
+            return false
+        }
+
+        if bundleIdentifier.hasPrefix("com.todesktop.") {
+            return false
+        }
+
+        return target?.clickPoint != nil
+    }
+
+    private func shouldPreferHelperTypingFallback(
+        beforePasteFor target: TextInsertionTarget?,
+        focusedElement: AXUIElement?
+    ) -> Bool {
+        guard focusedElement == nil else { return false }
+        guard let bundleIdentifier = target?.frontmostBundleIdentifier else { return false }
+        return bundleIdentifier.hasPrefix("com.todesktop.")
+    }
+
+    private func shouldTreatUnverifiedMenuPasteAsFailure(
+        for target: TextInsertionTarget?,
+        focusedElement: AXUIElement?
+    ) -> Bool {
+        guard focusedElement == nil else { return false }
+        guard let bundleIdentifier = target?.frontmostBundleIdentifier else { return false }
+        return bundleIdentifier.hasPrefix("com.todesktop.")
     }
 
     private func shouldAssumePasteSucceededWithoutVerification(for target: TextInsertionTarget?) -> Bool {
@@ -1124,35 +1561,75 @@ final class TextInsertionService {
     }
 
     private func waitForShortcutModifiersToRelease() {
-        let relevantFlags: CGEventFlags = [
-            .maskCommand,
-            .maskControl,
-            .maskAlternate,
-            .maskShift,
-            .maskSecondaryFn
-        ]
-
-        let initialFlags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
-        if !initialFlags.isEmpty {
+        let standardModifierFlags: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+        let initialFlags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
+        if initialFlags.isEmpty {
+            appendDebugTrace("modifier_wait_skipped=no_active_standard_modifiers")
+        } else {
             appendDebugTrace("modifier_wait_start=\(initialFlags.rawValue)")
         }
 
         let deadline = Date().addingTimeInterval(0.35)
         while Date() < deadline {
-            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
             if flags.isEmpty {
                 if !initialFlags.isEmpty {
                     appendDebugTrace("modifier_wait_end=cleared")
                 }
-                return
+                break
             }
 
             RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
 
-        let finalFlags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+        let finalFlags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
         if !finalFlags.isEmpty {
             appendDebugTrace("modifier_wait_end=timeout:\(finalFlags.rawValue)")
+        }
+
+        let shortcut = KeyboardShortcutStore.load(.fieldInsert)
+        let initialKeyDown = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode))
+        if !initialKeyDown {
+            return
+        }
+
+        appendDebugTrace("shortcut_key_wait_start=\(shortcut.keyCode)")
+        let keyDeadline = Date().addingTimeInterval(0.25)
+        while Date() < keyDeadline {
+            if !CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode)) {
+                appendDebugTrace("shortcut_key_wait_end=released")
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+
+        appendDebugTrace("shortcut_key_wait_end=timeout")
+    }
+
+    private func waitForMouseButtonsToRelease() {
+        let deadline = Date().addingTimeInterval(0.35)
+        var waited = false
+
+        while Date() < deadline {
+            let leftDown = CGEventSource.buttonState(.combinedSessionState, button: .left)
+            if !leftDown {
+                if waited {
+                    appendDebugTrace("mouse_wait_end=released")
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                }
+                return
+            }
+
+            if !waited {
+                appendDebugTrace("mouse_wait_start=left_down")
+                waited = true
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+
+        if waited {
+            appendDebugTrace("mouse_wait_end=timeout")
         }
     }
 
@@ -1244,11 +1721,54 @@ private struct PasteboardSnapshot {
         return Self(items: items)
     }
 
-    func restore() {
+    /// - Parameter omitImageTypes: After pasting text, restoring a full snapshot can put PNG/TIFF back on the general
+    ///   pasteboard; web composers (e.g. LinkedIn) may immediately attach that image. Drop image-ish types on restore.
+    func restore(omitImageTypes: Bool = false) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
         guard !items.isEmpty else { return }
-        pasteboard.writeObjects(items)
+
+        let toWrite: [NSPasteboardItem]
+        if omitImageTypes {
+            toWrite = Self.itemsOmittingImageTypes(items)
+        } else {
+            toWrite = items
+        }
+
+        guard !toWrite.isEmpty else { return }
+        pasteboard.writeObjects(toWrite)
+    }
+
+    private static func itemsOmittingImageTypes(_ items: [NSPasteboardItem]) -> [NSPasteboardItem] {
+        items.compactMap { item -> NSPasteboardItem? in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if isImageLikePasteboardType(type) {
+                    continue
+                }
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                }
+            }
+            return copy.types.isEmpty ? nil : copy
+        }
+    }
+
+    private static func isImageLikePasteboardType(_ type: NSPasteboard.PasteboardType) -> Bool {
+        let raw = type.rawValue.lowercased()
+        if raw == "public.png" || raw == "public.jpeg" || raw == "public.jpg" || raw == "public.tiff" || raw == "public.gif" {
+            return true
+        }
+        if raw == "com.compuserve.gif" || raw == "public.image" {
+            return true
+        }
+        if raw == "apple png pasteboard type" || raw == "nebula" {
+            return true
+        }
+        if raw.contains("image") && (raw.contains("png") || raw.contains("tiff") || raw.contains("jpeg")) {
+            return true
+        }
+        return false
     }
 }

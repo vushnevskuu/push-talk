@@ -1,5 +1,5 @@
 # Verifies that VoiceInsert builds from a clean clone (swift build + Scripts/build_app.sh).
-# Runners expose Swift 5.x by default; Package.swift requires swift-tools-version: 6.0 — pin Swift 6 here.
+# Package.swift needs Swift 6 — use Xcode 16+ from the runner (setup-swift/Swiftly often fails on macOS).
 
 name: VoiceInsert build
 
@@ -16,13 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Swift 6
-        uses: swift-actions/setup-swift@v3
+      - name: Select Xcode (Swift 6)
+        uses: maxim-lobanov/setup-xcode@v1
         with:
-          swift-version: "6.0.3"
+          xcode-version: latest-stable
 
       - name: Swift toolchain
-        run: swift --version
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Swift PM release build
         env:

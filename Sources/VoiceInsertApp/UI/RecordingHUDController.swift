@@ -16,7 +16,8 @@ final class RecordingHUDController {
         panel = makePanel(with: feedbackModel, style: style)
     }
 
-    func show() {
+    /// - Parameter animated: When false, show immediately so dictation HUD appears without waiting on a fade-in.
+    func show(animated: Bool = true) {
         guard let panel else { return }
 
         panel.setFrame(defaultFrame(for: currentStyle.panelSize), display: false)
@@ -29,10 +30,14 @@ final class RecordingHUDController {
         }
         isVisible = true
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.16
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.16
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel.animator().alphaValue = 1
+            }
+        } else {
+            panel.alphaValue = 1
         }
     }
 

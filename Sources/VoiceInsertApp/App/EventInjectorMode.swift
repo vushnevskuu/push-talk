@@ -1,11 +1,18 @@
 import AppKit
 import ApplicationServices
+import Carbon.HIToolbox
 import Foundation
 
 enum EventInjectorMode {
+    private enum InsertionMode {
+        case typing
+        case paste
+    }
+
     private struct Options {
         var bundleIdentifier: String?
         var clickPoint: CGPoint?
+        var insertionMode: InsertionMode = .typing
     }
 
     private enum InjectorError: Error {
@@ -30,16 +37,39 @@ enum EventInjectorMode {
                 throw InjectorError.missingText
             }
 
+            var targetPID: pid_t?
             if let bundleIdentifier = options.bundleIdentifier {
-                activateApplication(bundleIdentifier: bundleIdentifier)
+                targetPID = activateApplication(bundleIdentifier: bundleIdentifier)
+                // #region agent log
+                let fm = NSWorkspace.shared.frontmostApplication
+                AgentDebugLog.append(
+                    hypothesisId: "H1",
+                    location: "EventInjectorMode.swift:after_activate",
+                    message: "injector_activate_done",
+                    data: [
+                        "bundle": bundleIdentifier,
+                        "targetPID": targetPID.map(String.init) ?? "nil",
+                        "frontmostPID": fm.map { String($0.processIdentifier) } ?? "nil",
+                        "frontmostBundle": fm?.bundleIdentifier ?? "nil"
+                    ]
+                )
+                // #endregion
             }
+
+            waitForMouseButtonsToRelease()
+            waitForStandardModifiersToRelease()
 
             if let clickPoint = options.clickPoint {
                 try click(at: clickPoint)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.08))
             }
 
-            try type(text)
+            switch options.insertionMode {
+            case .typing:
+                try type(text, targetPID: targetPID)
+            case .paste:
+                try paste(text, targetPID: targetPID)
+            }
         } catch {
             fputs("\(error)\n", stderr)
             exit(1)
@@ -56,6 +86,8 @@ enum EventInjectorMode {
             switch arguments[index] {
             case "--event-injector":
                 break
+            case "--paste":
+                options.insertionMode = .paste
             case "--bundle-id":
                 index += 1
                 guard index < arguments.count else { throw InjectorError.malformedArguments }
@@ -87,17 +119,18 @@ enum EventInjectorMode {
         return options
     }
 
-    private static func activateApplication(bundleIdentifier: String) {
+    private static func activateApplication(bundleIdentifier: String) -> pid_t? {
         guard let application = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == bundleIdentifier
         }) else {
-            return
+            return nil
         }
 
+        let pid = application.processIdentifier
         _ = application.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         let deadline = Date().addingTimeInterval(2.0)
         while Date() < deadline {
-            if NSWorkspace.shared.frontmostApplication?.processIdentifier == application.processIdentifier {
+            if NSWorkspace.shared.frontmostApplication?.processIdentifier == pid {
                 break
             }
 
@@ -105,6 +138,19 @@ enum EventInjectorMode {
         }
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        return pid
+    }
+
+    private static func waitForMouseButtonsToRelease() {
+        let deadline = Date().addingTimeInterval(0.35)
+        while Date() < deadline {
+            if !CGEventSource.buttonState(.combinedSessionState, button: .left) {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
     }
 
     private static func click(at point: CGPoint) throws {
@@ -135,10 +181,26 @@ enum EventInjectorMode {
         up.post(tap: .cghidEventTap)
     }
 
-    private static func type(_ text: String) throws {
+    private static func type(_ text: String, targetPID: pid_t?) throws {
         guard let source = CGEventSource(stateID: .hidSystemState) else {
             throw InjectorError.missingEventSource
         }
+
+        let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let usesDirectHIDTyping = true
+        // #region agent log
+        AgentDebugLog.append(
+            hypothesisId: "H1",
+            location: "EventInjectorMode.swift:type_begin",
+            message: "injector_typing",
+            data: [
+                "targetPID": targetPID.map(String.init) ?? "nil",
+                "frontmostPID": frontmost.map(String.init) ?? "nil",
+                "usePostToPid": (!usesDirectHIDTyping && targetPID != nil).description,
+                "textChars": String(text.count)
+            ]
+        )
+        // #endregion
 
         for chunk in chunked(text, maxCharacters: 24) {
             let utf16 = Array(chunk.utf16)
@@ -148,11 +210,80 @@ enum EventInjectorMode {
                 throw InjectorError.missingKeyboardEvent
             }
 
+            keyDown.flags = []
+            keyUp.flags = []
             keyDown.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
             keyUp.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+            // Unicode CGEvents posted directly to a PID are often ignored by Electron/WebView composers
+            // (Codex/Cursor included). After activating and refocusing the target, HID injection is reliable.
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+    }
+
+    private static func paste(_ text: String, targetPID: pid_t?) throws {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let commandDown = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_Command),
+                keyDown: true
+              ),
+              let keyDown = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_ANSI_V),
+                keyDown: true
+              ),
+              let keyUp = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_ANSI_V),
+                keyDown: false
+              ),
+              let commandUp = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: CGKeyCode(kVK_Command),
+                keyDown: false
+              ) else {
+            throw InjectorError.missingKeyboardEvent
+        }
+
+        commandDown.flags = .maskCommand
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        commandUp.flags = []
+
+        AgentDebugLog.append(
+            hypothesisId: "H1",
+            location: "EventInjectorMode.swift:paste_begin",
+            message: "injector_paste",
+            data: [
+                "targetPID": targetPID.map(String.init) ?? "nil",
+                "frontmostPID": NSWorkspace.shared.frontmostApplication.map { String($0.processIdentifier) } ?? "nil",
+                "textChars": String(text.count)
+            ]
+        )
+
+        commandDown.post(tap: .cghidEventTap)
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
+        commandUp.post(tap: .cghidEventTap)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+    }
+
+    private static func waitForStandardModifiersToRelease() {
+        let relevantFlags: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+        let deadline = Date().addingTimeInterval(0.35)
+        while Date() < deadline {
+            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+            if flags.isEmpty {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
     }
 

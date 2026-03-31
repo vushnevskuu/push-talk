@@ -28,3 +28,7 @@ Artifacts/
 tools/obsidian-head-agent/assets/*real*.json
 tools/obsidian-head-agent/assets/*.state.json
 tools/obsidian-head-agent/scripts/__pycache__/
+
+# Local IDE / debug
+.cursor/
+.agent/

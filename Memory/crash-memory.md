@@ -862,3 +862,183 @@ Use this file to preserve:
 - Warnings: `voiceinsert_hotkey_activation_inconclusive`
 - Crash triage: no new crash reports in this run.
 - Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 17:08:49
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-170556`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:39:18
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-183853`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:42:37
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-184216`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:46:07
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-184544`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:46:49
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-184627`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:48:02
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-184741`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:50:06
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-184944`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:50:54
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-185033`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:52:31
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-185210`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:54:51
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-185427`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 18:59:34
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-185913`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 19:00:31
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-190009`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 19:02:30
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-190207`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 19:13:07
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-191242`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 19:20:23
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-191959`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 19:22:44
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-192219`
+- New crash reports: `0`
+- Warnings: `tcc_signature_risk, voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 20:14:53
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-201408`
+- New crash reports: `0`
+- Warnings: `none`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 20:37:52
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-203723`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 21:04:08
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-210341`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-03-30 21:09:26
+- Result: `fail`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260330-210900`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.

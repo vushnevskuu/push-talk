@@ -46,6 +46,7 @@ final class AppModel: ObservableObject {
     private var lastObservedAutotestTriggerToken: String?
     private var lastObservedObsidianAutotestTriggerToken: String?
     private var isSynchronizingRecorderState = false
+    private var hasPromptedAccessibilityThisLaunch = false
     /// Invalidates in-flight `finishSession` work when the user cancels from the menu or floating panel.
     private var captureSessionGeneration: UInt64 = 0
     private lazy var settingsWindowController = SettingsWindowController(model: self)
@@ -139,7 +140,7 @@ final class AppModel: ObservableObject {
                     return "Text will be inserted into the field that currently has focus."
                 }
 
-                return "VoiceInsert will paste into the active field. Accessibility can improve direct insertion in some apps."
+                return "VoiceInsert can transcribe without Accessibility, but reliable paste/type into other apps still needs Accessibility enabled."
             }
 
             return permissions.missingText
@@ -175,10 +176,10 @@ final class AppModel: ObservableObject {
 
     var accessibilityHelpText: String {
         if permissions.accessibility == .authorized {
-            return "Accessibility is active. VoiceInsert can use direct insertion in apps that support it."
+            return "Accessibility is active. VoiceInsert can focus fields, paste, and type into other apps much more reliably."
         }
 
-        return "Accessibility is optional. VoiceInsert is already ready to paste text into most focused fields without it. Turn it on only if a specific app resists pasted text and you want stronger direct insertion."
+        return "Accessibility is strongly recommended for field insertion. Without it, VoiceInsert may still transcribe correctly but many browser, Electron, and custom app inputs will ignore the final paste/type step."
     }
 
     var inputMonitoringHelpText: String {
@@ -257,7 +258,12 @@ final class AppModel: ObservableObject {
     }
 
     func startHold(for destination: CaptureDestination) {
-        guard phase == .idle else { return }
+        guard phase == .idle else {
+            if phase == .transcribing {
+                statusMessage = "Wait until the previous dictation finishes, then try again."
+            }
+            return
+        }
 
         if permissions.microphone != .authorized || permissions.speech != .authorized {
             refreshPermissionsImmediately()
@@ -277,6 +283,13 @@ final class AppModel: ObservableObject {
             return
         }
 
+        if destination == .fieldInsert,
+           permissions.accessibility != .authorized,
+           !hasPromptedAccessibilityThisLaunch {
+            hasPromptedAccessibilityThisLaunch = true
+            _ = permissionManager.promptForAccessibilityIfNeeded()
+        }
+
         if destination == .obsidianVault, obsidianVaultURL == nil {
             statusMessage = "Choose your Obsidian vault before using the Obsidian shortcut."
             NSSound.beep()
@@ -288,14 +301,14 @@ final class AppModel: ObservableObject {
             liveTranscript = ""
             resetAudioVisualization()
             activeCaptureDestination = destination
+            // Fast snapshot — full `captureTarget` can call `CGWindowListCopyWindowInfo` for Codex/Cursor and block for seconds.
             activeInsertionTarget = destination == .fieldInsert
-                ? insertionService.captureTarget(includeFocusedElement: false)
+                ? insertionService.captureTargetForHoldStart()
                 : nil
             phase = .recording
             recordHotkeyActivation(for: destination)
             persistRuntimeDebugState()
             statusMessage = destination == .obsidianVault ? "Listening for Obsidian..." : "Listening..."
-            recordingHUDController.show()
 
             try speechService.startSession(
                 locale: dictationLocale,
@@ -305,6 +318,7 @@ final class AppModel: ObservableObject {
                     self?.pushAudioLevel(level)
                 }
             )
+            recordingHUDController.show(animated: false)
         } catch {
             recordingHUDController.hide()
             resetAudioVisualization()
@@ -385,6 +399,9 @@ final class AppModel: ObservableObject {
         isPanelVisible = visible
         UserDefaults.standard.set(visible, forKey: DefaultsKey.panelVisible)
         applyPanelVisibility()
+        if visible, permissions.microphone == .authorized, permissions.speech == .authorized {
+            prewarmSpeechPipeline()
+        }
     }
 
     func updateRecordingHUDStyle(_ style: RecordingHUDStyle) {
@@ -408,7 +425,6 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(language.rawValue, forKey: DefaultsKey.dictationLanguage)
         speechService.cancelSession()
         prewarmSpeechPipeline()
-        scheduleMicrophoneRoutePrewarmFromIdleState()
         statusMessage = "Recognition language: \(language.title) (\(language.speechLocale.identifier))."
     }
 
@@ -432,7 +448,7 @@ final class AppModel: ObservableObject {
     }
 
     func firstLaunchMessage() -> String {
-        "Set your shortcut, grant microphone and speech recognition, then click OK. Accessibility is optional."
+        "Set your shortcut, grant microphone and speech recognition, then click OK. For reliable insertion into other apps, also enable Accessibility."
     }
 
     func backgroundModeMessage() -> String {
@@ -450,6 +466,16 @@ final class AppModel: ObservableObject {
     func openSettings() {
         refreshPermissionsFromUI()
         settingsWindowController.show()
+        if permissions.microphone == .authorized, permissions.speech == .authorized {
+            prewarmSpeechPipeline()
+        }
+    }
+
+    /// Closing Settings while «Record Shortcut» is active leaves hotkeys suspended; clear capture mode.
+    func clearShortcutRecordingSessionIfNeeded() {
+        guard isRecordingShortcut || isRecordingObsidianShortcut else { return }
+        isRecordingShortcut = false
+        isRecordingObsidianShortcut = false
     }
 
     func startShortcutRecording() {
@@ -580,7 +606,6 @@ final class AppModel: ObservableObject {
 
         if permissions.microphone == .authorized, permissions.speech == .authorized {
             prewarmSpeechPipeline()
-            scheduleMicrophoneRoutePrewarmFromIdleState()
         }
     }
 
@@ -599,11 +624,7 @@ final class AppModel: ObservableObject {
 
     private func prewarmSpeechPipeline() {
         speechService.prewarm(locale: dictationLocale)
-    }
-
-    private func scheduleMicrophoneRoutePrewarmFromIdleState() {
-        guard phase == .idle else { return }
-        speechService.scheduleMicrophoneRoutePrewarmIfNeeded()
+        speechService.prepareInputGraphIfIdle()
     }
 
     private var dictationLocale: Locale {
@@ -629,16 +650,27 @@ final class AppModel: ObservableObject {
             return
         }
 
+        await activateAutotestFieldInsertHostIfNeeded()
         liveTranscript = ""
         resetAudioVisualization()
-            activeCaptureDestination = .fieldInsert
-            activeInsertionTarget = insertionService.captureTarget()
-            activeAutotestTriggerToken = triggerToken
-            phase = .transcribing
-            persistRuntimeDebugState()
-            statusMessage = "Running insertion test..."
-            await finishCapture(transcript, destination: .fieldInsert)
+        activeCaptureDestination = .fieldInsert
+        activeInsertionTarget = insertionService.captureTarget()
+        activeAutotestTriggerToken = triggerToken
+        phase = .transcribing
+        persistRuntimeDebugState()
+        statusMessage = "Running insertion test..."
+        await finishCapture(transcript, destination: .fieldInsert)
         await processPendingObsidianAutotestTriggerIfNeeded()
+    }
+
+    /// Смоук-тест полевой вставки гоняется против `Codex.app`; без явной активации фронт часто остаётся у другого Electron (например Cursor), и `captureTarget()` цепляет неверное приложение.
+    private func activateAutotestFieldInsertHostIfNeeded() async {
+        let codexBundle = "com.openai.codex"
+        guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == codexBundle }) else {
+            return
+        }
+        _ = app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        try? await Task.sleep(for: .milliseconds(280))
     }
 
     private func processPendingObsidianAutotestTriggerIfNeeded() async {
@@ -664,12 +696,19 @@ final class AppModel: ObservableObject {
             return
         }
 
+        // Autotest uses a temporary vault path in UserDefaults; do not leave it as the in-app vault
+        // or the user's Obsidian shortcut will target the wrong folder (or nil) after the test.
+        let savedUserVaultPath = obsidianVaultPath
+        obsidianVaultPath = vaultPath
+        defer {
+            obsidianVaultPath = savedUserVaultPath
+        }
+
         liveTranscript = ""
         resetAudioVisualization()
         activeCaptureDestination = .obsidianVault
         activeInsertionTarget = nil
         activeObsidianAutotestTriggerToken = triggerToken
-        obsidianVaultPath = vaultPath
         phase = .transcribing
         persistRuntimeDebugState()
         statusMessage = "Running Obsidian capture test..."
@@ -677,7 +716,9 @@ final class AppModel: ObservableObject {
     }
 
     private func finishCapture(_ transcript: String, destination: CaptureDestination) async {
-        let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTranscript = transcript
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .strippingVoiceInsertAutotestTokens()
 
         guard !trimmedTranscript.isEmpty else {
             phase = .idle
@@ -786,7 +827,8 @@ final class AppModel: ObservableObject {
 
     private static func loadPanelVisibility() -> Bool {
         if UserDefaults.standard.object(forKey: DefaultsKey.panelVisible) == nil {
-            return false
+            // Show the hold-to-talk surface when Input Monitoring is still off (our own copy promises the “floating button” path).
+            return true
         }
 
         return UserDefaults.standard.bool(forKey: DefaultsKey.panelVisible)
@@ -901,6 +943,22 @@ final class AppModel: ObservableObject {
 
     private func recordHotkeyActivation(for destination: CaptureDestination) {
         UserDefaults.standard.set(destination.debugValue, forKey: DefaultsKey.debugLastStartedDestination)
+    }
+}
+
+private extension String {
+    /// Smoke tests use `VOICEINSERT_VERIFY_<hex>`; it can end up inside the recognized string (clipboard/UI/timing).
+    func strippingVoiceInsertAutotestTokens() -> String {
+        guard let regex = try? NSRegularExpression(pattern: "VOICEINSERT_VERIFY_[0-9a-fA-F]+", options: []) else {
+            return self
+        }
+        let mutable = NSMutableString(string: self)
+        regex.replaceMatches(in: mutable, options: [], range: NSRange(location: 0, length: mutable.length), withTemplate: " ")
+        var result = String(mutable)
+        while result.contains("  ") {
+            result = result.replacingOccurrences(of: "  ", with: " ")
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

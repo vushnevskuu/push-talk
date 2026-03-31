@@ -34,7 +34,7 @@ final class MenuBarStatusItemController: NSObject {
             menuHostingController = NSHostingController(rootView: MenuBarMenuView(model: model))
         }
         popover.contentViewController = menuHostingController
-        popover.contentSize = NSSize(width: 360, height: 720)
+        popover.contentSize = popoverSize(for: button)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
@@ -52,5 +52,13 @@ final class MenuBarStatusItemController: NSObject {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
+    }
+
+    private func popoverSize(for button: NSStatusBarButton) -> NSSize {
+        let width: CGFloat = 360
+        let screen = button.window?.screen ?? NSScreen.main
+        let availableHeight = (screen?.visibleFrame.height ?? 900) - 96
+        let height = min(640, max(420, availableHeight))
+        return NSSize(width: width, height: height)
     }
 }
