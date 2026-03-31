@@ -57,6 +57,7 @@ enum EventInjectorMode {
             }
 
             waitForMouseButtonsToRelease()
+            waitForStandardModifiersToRelease()
 
             if let clickPoint = options.clickPoint {
                 try click(at: clickPoint)
@@ -209,6 +210,8 @@ enum EventInjectorMode {
                 throw InjectorError.missingKeyboardEvent
             }
 
+            keyDown.flags = []
+            keyUp.flags = []
             keyDown.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
             keyUp.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
             // Unicode CGEvents posted directly to a PID are often ignored by Electron/WebView composers
@@ -269,6 +272,19 @@ enum EventInjectorMode {
         keyUp.post(tap: .cghidEventTap)
         commandUp.post(tap: .cghidEventTap)
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+    }
+
+    private static func waitForStandardModifiersToRelease() {
+        let relevantFlags: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+        let deadline = Date().addingTimeInterval(0.35)
+        while Date() < deadline {
+            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+            if flags.isEmpty {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
     }
 
     private static func chunked(_ text: String, maxCharacters: Int) -> [String] {

@@ -18,8 +18,28 @@ ensure_keychain() {
   security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
   security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH" >/dev/null
 
-  local existing_keychains
-  existing_keychains=("${(@f)$(security list-keychains -d user | tr -d '"')}")
+  local existing_keychains=()
+  local line
+  while IFS= read -r line; do
+    line="${line//\"/}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    [[ -n "$line" ]] || continue
+    [[ "$line" == /* ]] || continue
+    [[ "$line" == "$KEYCHAIN_PATH" ]] && continue
+    [[ -e "$line" ]] || continue
+
+    if (( ${existing_keychains[(Ie)$line]} == 0 )); then
+      existing_keychains+=("$line")
+    fi
+  done < <(security list-keychains -d user 2>/dev/null || true)
+
+  local login_keychain="$HOME/Library/Keychains/login.keychain-db"
+  if [[ -e "$login_keychain" && ${existing_keychains[(Ie)$login_keychain]} == 0 ]]; then
+    existing_keychains+=("$login_keychain")
+  fi
+
   security list-keychains -d user -s "$KEYCHAIN_PATH" "${existing_keychains[@]}" >/dev/null
 }
 

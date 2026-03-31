@@ -248,24 +248,13 @@ final class TextInsertionService {
         }
 
         if prefersTypingFallback(for: mergedTarget, focusedElement: focusedElement) {
-            appendDebugTrace("bundle_specific_path=codex_menu_paste")
+            let prefersHelperTypingFirst = shouldPreferHelperTypingFallback(
+                beforePasteFor: mergedTarget,
+                focusedElement: focusedElement
+            )
 
-            if try insertViaMenuPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
-                appendDebugTrace("menu_paste_path=success")
-                return
-            }
-
-            appendDebugTrace("menu_paste_path=failed")
-
-            if mergedTarget.frontmostBundleIdentifier == "com.openai.codex" {
-                if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
-                    appendDebugTrace("pasteboard_path=success_codex_after_menu")
-                    return
-                }
-                appendDebugTrace("pasteboard_path=failed_codex_after_menu")
-            }
-
-            if shouldPreferHelperTypingFallback(beforePasteFor: mergedTarget, focusedElement: focusedElement) {
+            if prefersHelperTypingFirst {
+                appendDebugTrace("bundle_specific_path=cursor_helper_typing_first")
                 if try await insertViaHelperTyping(
                     trimmedText,
                     target: mergedTarget,
@@ -276,7 +265,28 @@ final class TextInsertionService {
                 }
 
                 appendDebugTrace("helper_typing_path=failed")
+            } else {
+                appendDebugTrace("bundle_specific_path=codex_menu_paste")
+            }
 
+            if !prefersHelperTypingFirst {
+                if try insertViaMenuPaste(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                    appendDebugTrace("menu_paste_path=success")
+                    return
+                }
+
+                appendDebugTrace("menu_paste_path=failed")
+
+                if mergedTarget.frontmostBundleIdentifier == "com.openai.codex" {
+                    if try insertViaPasteboard(trimmedText, target: mergedTarget, focusedElement: focusedElement) {
+                        appendDebugTrace("pasteboard_path=success_codex_after_menu")
+                        return
+                    }
+                    appendDebugTrace("pasteboard_path=failed_codex_after_menu")
+                }
+            }
+
+            if prefersHelperTypingFirst {
                 if try await insertViaHelperPaste(
                     trimmedText,
                     target: mergedTarget,
@@ -976,6 +986,8 @@ final class TextInsertionService {
                 throw TextInsertionError.eventCreationFailed
             }
 
+            keyDown.flags = []
+            keyUp.flags = []
             keyDown.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
             keyUp.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
 
@@ -1549,43 +1561,49 @@ final class TextInsertionService {
     }
 
     private func waitForShortcutModifiersToRelease() {
-        let shortcut = KeyboardShortcutStore.load(.fieldInsert)
-        var relevantFlags = CGEventFlags()
-        if shortcut.modifiers.contains(.command) { relevantFlags.insert(.maskCommand) }
-        if shortcut.modifiers.contains(.control) { relevantFlags.insert(.maskControl) }
-        if shortcut.modifiers.contains(.option) { relevantFlags.insert(.maskAlternate) }
-        if shortcut.modifiers.contains(.shift) { relevantFlags.insert(.maskShift) }
-
-        // Page Up / Page Down frequently report a transient Fn bit in `combinedSessionState`
-        // even though the shortcut itself has no supported modifiers. Waiting for that bit to
-        // clear delays or blocks the follow-up paste/type events and leaves Electron editors empty.
-        if relevantFlags.isEmpty {
-            appendDebugTrace("modifier_wait_skipped=no_supported_shortcut_modifiers")
-            return
-        }
-
-        let initialFlags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
-        if !initialFlags.isEmpty {
+        let standardModifierFlags: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+        let initialFlags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
+        if initialFlags.isEmpty {
+            appendDebugTrace("modifier_wait_skipped=no_active_standard_modifiers")
+        } else {
             appendDebugTrace("modifier_wait_start=\(initialFlags.rawValue)")
         }
 
         let deadline = Date().addingTimeInterval(0.35)
         while Date() < deadline {
-            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+            let flags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
             if flags.isEmpty {
                 if !initialFlags.isEmpty {
                     appendDebugTrace("modifier_wait_end=cleared")
                 }
-                return
+                break
             }
 
             RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
 
-        let finalFlags = CGEventSource.flagsState(.combinedSessionState).intersection(relevantFlags)
+        let finalFlags = CGEventSource.flagsState(.combinedSessionState).intersection(standardModifierFlags)
         if !finalFlags.isEmpty {
             appendDebugTrace("modifier_wait_end=timeout:\(finalFlags.rawValue)")
         }
+
+        let shortcut = KeyboardShortcutStore.load(.fieldInsert)
+        let initialKeyDown = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode))
+        if !initialKeyDown {
+            return
+        }
+
+        appendDebugTrace("shortcut_key_wait_start=\(shortcut.keyCode)")
+        let keyDeadline = Date().addingTimeInterval(0.25)
+        while Date() < keyDeadline {
+            if !CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode)) {
+                appendDebugTrace("shortcut_key_wait_end=released")
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+
+        appendDebugTrace("shortcut_key_wait_end=timeout")
     }
 
     private func waitForMouseButtonsToRelease() {
