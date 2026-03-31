@@ -24,10 +24,18 @@ private struct RecognitionCallbackError: LocalizedError, Sendable {
     }
 }
 
+private enum InputTapMode {
+    case none
+    case idleWarmup
+    case recognition
+}
+
 @MainActor
 final class SpeechRecognitionService {
     private let audioEngine = AVAudioEngine()
+    private let keepInputWarmBetweenSessions = true
     private var isTapInstalled = false
+    private var tapMode: InputTapMode = .none
     private var cachedRecognizer: SFSpeechRecognizer?
     private var cachedLocaleIdentifier: String?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -40,6 +48,10 @@ final class SpeechRecognitionService {
     private var finishWaitStartedAt = Date.distantPast
     private var observedAudioSignal = false
     private var peakAudioLevel: Double = 0
+    private var sessionStartedAt = Date.distantPast
+    private var audioCaptureStartedAt = Date.distantPast
+    private var recognitionTaskStartedAt = Date.distantPast
+    private var firstObservedAudioSignalAt = Date.distantPast
     private var partialHandler: (@MainActor (String) -> Void)?
     private var sessionToken = UUID()
 
@@ -50,11 +62,19 @@ final class SpeechRecognitionService {
     /// Prepares the engine graph and touches the input node format without starting the mic — trims some first-session latency.
     func prepareInputGraphIfIdle() {
         guard recognitionRequest == nil, recognitionTask == nil else { return }
-        guard !audioEngine.isRunning else { return }
 
         let inputNode = audioEngine.inputNode
         _ = inputNode.outputFormat(forBus: 0)
         audioEngine.prepare()
+
+        guard keepInputWarmBetweenSessions else { return }
+
+        do {
+            try ensureWarmInputRunning()
+            persistDebugSnapshot(state: "idle_warmup_ready")
+        } catch {
+            persistDebugSnapshot(state: "idle_warmup_failed", errorMessage: error.localizedDescription)
+        }
     }
 
     func startSession(
@@ -89,42 +109,54 @@ final class SpeechRecognitionService {
         self.finishWaitStartedAt = Date.distantPast
         self.observedAudioSignal = false
         self.peakAudioLevel = 0
+        self.sessionStartedAt = Date()
+        self.audioCaptureStartedAt = Date.distantPast
+        self.recognitionTaskStartedAt = Date.distantPast
+        self.firstObservedAudioSignalAt = Date.distantPast
         self.sessionToken = token
         persistDebugSnapshot(state: "session_started")
-        self.recognitionTask = Self.makeRecognitionTask(
-            recognizer: recognizer,
-            request: request,
-            owner: self,
-            token: token
-        )
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
-        if isTapInstalled {
-            inputNode.removeTap(onBus: 0)
-            isTapInstalled = false
-        }
-        Self.installInputTap(
+        replaceInputTap(
             on: inputNode,
             format: format,
+            mode: .recognition,
             request: request,
             levelHandler: { [weak self] level in
                 self?.recordObservedAudioLevel(level)
                 levelHandler(level)
             }
         )
-        isTapInstalled = true
 
         audioEngine.prepare()
+        let wasWarm = audioEngine.isRunning
 
         do {
-            try audioEngine.start()
-            persistDebugSnapshot(state: "audio_engine_started")
+            if !wasWarm {
+                try audioEngine.start()
+                audioCaptureStartedAt = Date()
+                persistDebugSnapshot(state: "audio_engine_started")
+            } else {
+                audioCaptureStartedAt = sessionStartedAt
+                persistDebugSnapshot(state: "audio_engine_reused_warm")
+            }
         } catch {
             cleanupResources(cancelTask: true)
             persistDebugSnapshot(state: "audio_engine_start_failed", errorMessage: error.localizedDescription)
             throw SpeechRecognitionError.audioEngineBusy
         }
+
+        // Let the mic start buffering into `request` immediately; starting the speech task after the
+        // engine removes a chunk of press-to-first-syllable latency and preserves those early buffers.
+        recognitionTask = Self.makeRecognitionTask(
+            recognizer: recognizer,
+            request: request,
+            owner: self,
+            token: token
+        )
+        recognitionTaskStartedAt = Date()
+        persistDebugSnapshot(state: "recognition_task_started")
     }
 
     func finishSession() async throws -> String {
@@ -162,6 +194,10 @@ final class SpeechRecognitionService {
         finishWaitStartedAt = Date.distantPast
         observedAudioSignal = false
         peakAudioLevel = 0
+        sessionStartedAt = Date.distantPast
+        audioCaptureStartedAt = Date.distantPast
+        recognitionTaskStartedAt = Date.distantPast
+        firstObservedAudioSignalAt = Date.distantPast
         persistDebugSnapshot(state: "session_cancelled")
     }
 
@@ -229,14 +265,12 @@ final class SpeechRecognitionService {
     }
 
     private func stopAudioCapture() {
-        if audioEngine.isRunning {
-            audioEngine.stop()
+        if keepInputWarmBetweenSessions {
+            restoreWarmInputTapIfPossible()
+            return
         }
 
-        if isTapInstalled {
-            audioEngine.inputNode.removeTap(onBus: 0)
-            isTapInstalled = false
-        }
+        teardownInputCapture()
     }
 
     private func cleanupResources(cancelTask: Bool) {
@@ -256,6 +290,9 @@ final class SpeechRecognitionService {
 
         if level > 0.015 {
             observedAudioSignal = true
+            if firstObservedAudioSignalAt == .distantPast {
+                firstObservedAudioSignalAt = Date()
+            }
         }
     }
 
@@ -306,7 +343,96 @@ final class SpeechRecognitionService {
         }
     }
 
-    nonisolated private static func installInputTap(
+    private func ensureWarmInputRunning() throws {
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { return }
+
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+        replaceInputTap(on: inputNode, format: format, mode: .idleWarmup, request: nil, levelHandler: nil)
+
+        if !audioEngine.isRunning {
+            audioEngine.prepare()
+            try audioEngine.start()
+        }
+    }
+
+    private func restoreWarmInputTapIfPossible() {
+        guard keepInputWarmBetweenSessions,
+              AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            teardownInputCapture()
+            return
+        }
+
+        do {
+            try ensureWarmInputRunning()
+            persistDebugSnapshot(state: "idle_warmup_restored")
+        } catch {
+            teardownInputCapture()
+            persistDebugSnapshot(state: "idle_warmup_restore_failed", errorMessage: error.localizedDescription)
+        }
+    }
+
+    private func replaceInputTap(
+        on inputNode: AVAudioInputNode,
+        format: AVAudioFormat,
+        mode: InputTapMode,
+        request: SFSpeechAudioBufferRecognitionRequest?,
+        levelHandler: (@MainActor (Double) -> Void)?
+    ) {
+        if mode == .idleWarmup, tapMode == .idleWarmup, isTapInstalled {
+            return
+        }
+
+        if isTapInstalled {
+            inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+
+        switch mode {
+        case .none:
+            tapMode = .none
+        case .idleWarmup:
+            Self.installIdleInputTap(on: inputNode, format: format)
+            isTapInstalled = true
+            tapMode = .idleWarmup
+        case .recognition:
+            guard let request, let levelHandler else {
+                tapMode = .none
+                return
+            }
+
+            Self.installRecognitionInputTap(
+                on: inputNode,
+                format: format,
+                request: request,
+                levelHandler: levelHandler
+            )
+            isTapInstalled = true
+            tapMode = .recognition
+        }
+    }
+
+    private func teardownInputCapture() {
+        if audioEngine.isRunning {
+            audioEngine.pause()
+        }
+
+        if isTapInstalled {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+
+        tapMode = .none
+    }
+
+    nonisolated private static func installIdleInputTap(
+        on inputNode: AVAudioInputNode,
+        format: AVAudioFormat
+    ) {
+        inputNode.installTap(onBus: 0, bufferSize: 256, format: format) { _, _ in }
+    }
+
+    nonisolated private static func installRecognitionInputTap(
         on inputNode: AVAudioInputNode,
         format: AVAudioFormat,
         request: SFSpeechAudioBufferRecognitionRequest,
@@ -415,6 +541,30 @@ final class SpeechRecognitionService {
         if lastRecognitionUpdateAt != .distantPast {
             parts.append(
                 "secondsSinceLastRecognition=\(String(format: "%.2f", Date().timeIntervalSince(lastRecognitionUpdateAt)))"
+            )
+        }
+
+        if sessionStartedAt != .distantPast {
+            parts.append(
+                "sessionAge=\(String(format: "%.2f", Date().timeIntervalSince(sessionStartedAt)))"
+            )
+        }
+
+        if audioCaptureStartedAt != .distantPast, sessionStartedAt != .distantPast {
+            parts.append(
+                "audioStartDelayMs=\(Int(audioCaptureStartedAt.timeIntervalSince(sessionStartedAt) * 1000))"
+            )
+        }
+
+        if recognitionTaskStartedAt != .distantPast, sessionStartedAt != .distantPast {
+            parts.append(
+                "recognitionTaskDelayMs=\(Int(recognitionTaskStartedAt.timeIntervalSince(sessionStartedAt) * 1000))"
+            )
+        }
+
+        if firstObservedAudioSignalAt != .distantPast, sessionStartedAt != .distantPast {
+            parts.append(
+                "firstAudioSignalDelayMs=\(Int(firstObservedAudioSignalAt.timeIntervalSince(sessionStartedAt) * 1000))"
             )
         }
 
