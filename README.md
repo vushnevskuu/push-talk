@@ -9,6 +9,8 @@
 
 **CI:** each push/PR runs [VoiceInsert build](.github/workflows/voiceinsert-build.yml) on GitHub (`swift build` + `Scripts/build_app.sh`) so broken installs are caught before users clone.
 
+**Landing page:** static site in [`docs/index.html`](docs/index.html) (teal/dark one-pager). Enable **GitHub Pages** → branch `main` → folder **`/docs`**. For this repository, the site URL will be `https://vushnevskuu.github.io/push-talk/`, and the download button points at the latest GitHub Release ZIP.
+
 **Releases:** pushing a git tag matching `v*` (e.g. `v1.0.0`) runs [Release](.github/workflows/release.yml) and attaches **`VoiceInsert-macos.zip`** (and a `.sha256` checksum) to a GitHub Release for that tag.
 
 ### Install from GitHub (no Xcode required)

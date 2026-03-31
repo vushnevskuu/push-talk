@@ -78,6 +78,7 @@ Main runtime pieces:
 - `.github/workflows/voiceinsert-build.yml` — PR/push build
 - `.github/workflows/release.yml` — tag `v*` → GitHub Release + `VoiceInsert-macos.zip`
 - `README.md`
+- `docs/index.html` — public landing (GitHub Pages from `/docs`) wired to `vushnevskuu/push-talk` releases
 - `docs/`
 - `LICENSE` — MIT (distribution)
 
@@ -208,4 +209,3 @@ rg "pattern" Sources Scripts Resources
 - if changing injection logic, review app + helper together
 - do not edit generated folders
 - do not stage unrelated local changes
-

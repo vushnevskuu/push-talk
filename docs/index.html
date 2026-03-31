@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoiceInsert — Hold-to-talk dictation for Mac</title>
+  <meta name="description" content="Dictate into any focused text field or save to Obsidian. Lightweight menu bar app for macOS.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --hud-coral: #f25c47;
+      --hud-coral-deep: #eb4a40;
+      --hud-amber: #fc9e47;
+      --hud-gold: #ffba5c;
+      --hud-orange: #fa8247;
+      --color-bg: #0e0b09;
+      --color-surface: #1a1410;
+      --color-border: #3d3128;
+      --color-text: #f4eee8;
+      --color-muted: #9e9188;
+      --font-sans: "DM Sans", system-ui, sans-serif;
+      --font-display: "Fraunces", Georgia, serif;
+      --ratio: 1.25;
+      --text-base: 1.0625rem;
+      --text-sm: calc(var(--text-base) / var(--ratio));
+      --text-lg: calc(var(--text-base) * var(--ratio));
+      --text-xl: calc(var(--text-base) * var(--ratio) * var(--ratio));
+      --text-2xl: calc(var(--text-base) * var(--ratio) * var(--ratio) * var(--ratio));
+      --text-3xl: calc(var(--text-base) * var(--ratio) * var(--ratio) * var(--ratio) * var(--ratio));
+      --leading-tight: 1.2;
+      --leading-body: 1.55;
+      --space: 1rem;
+      --radius: 12px;
+      --shadow-glow: 0 20px 48px rgba(242, 92, 71, 0.22);
+      --transition: 220ms ease-out;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: var(--text-base);
+      line-height: var(--leading-body);
+      color: var(--color-text);
+      background: var(--color-bg);
+      background-image:
+        radial-gradient(ellipse 90% 55% at 50% -25%, rgba(252, 158, 71, 0.14), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 100% 10%, rgba(242, 92, 71, 0.08), transparent),
+        radial-gradient(ellipse 40% 30% at 0% 20%, rgba(255, 186, 92, 0.06), transparent);
+      min-height: 100vh;
+    }
+    a { color: var(--hud-amber); text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid var(--hud-orange); outline-offset: 3px; }
+    .wrap { max-width: 52rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem); }
+    header { padding-block: clamp(2rem, 8vw, 4rem) 2rem; }
+    .hud-wave { display: flex; align-items: flex-end; gap: 4px; height: 44px; margin-bottom: 1.25rem; opacity: 0.92; }
+    .hud-wave span {
+      width: 7px; border-radius: 4px;
+      background: linear-gradient(to top, var(--hud-coral-deep), var(--hud-amber));
+      box-shadow: 0 0 12px rgba(252, 158, 71, 0.15);
+      transform-origin: bottom center;
+      animation: barWave 1.15s ease-in-out infinite;
+    }
+    .hud-wave span:nth-child(1){height:38%}.hud-wave span:nth-child(2){height:62%}.hud-wave span:nth-child(3){height:45%}
+    .hud-wave span:nth-child(4){height:88%}.hud-wave span:nth-child(5){height:55%}.hud-wave span:nth-child(6){height:72%}
+    .hud-wave span:nth-child(7){height:48%}.hud-wave span:nth-child(8){height:95%}.hud-wave span:nth-child(9){height:58%}
+    .hud-wave span:nth-child(10){height:68%}.hud-wave span:nth-child(11){height:42%}.hud-wave span:nth-child(12){height:78%}
+    .hud-wave span:nth-child(1){animation-delay:0s}.hud-wave span:nth-child(2){animation-delay:.08s}.hud-wave span:nth-child(3){animation-delay:.16s}
+    .hud-wave span:nth-child(4){animation-delay:.04s}.hud-wave span:nth-child(5){animation-delay:.12s}.hud-wave span:nth-child(6){animation-delay:.2s}
+    .hud-wave span:nth-child(7){animation-delay:.06s}.hud-wave span:nth-child(8){animation-delay:.14s}.hud-wave span:nth-child(9){animation-delay:.1s}
+    .hud-wave span:nth-child(10){animation-delay:.18s}.hud-wave span:nth-child(11){animation-delay:.02s}.hud-wave span:nth-child(12){animation-delay:.11s}
+    .hud-wave span:nth-child(odd){animation-duration:1.05s}
+    .hud-wave span:nth-child(even){animation-duration:1.22s}
+    @keyframes barWave {
+      0%, 100% { transform: scaleY(0.32); opacity: 0.78; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .hud-wave span{ animation:none; transform:none; opacity:1 }
+    }
+    .eyebrow { font-size:var(--text-sm); font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--hud-amber); margin:0 0 var(--space); }
+    h1 {
+      font-family:var(--font-display); font-size:clamp(var(--text-2xl),5vw,var(--text-3xl)); font-weight:700;
+      line-height:var(--leading-tight); letter-spacing:-.02em; margin:0 0 var(--space);
+      background:linear-gradient(120deg,var(--hud-gold),var(--hud-orange) 45%,var(--hud-coral));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    .lede{font-size:var(--text-lg);color:var(--color-muted);max-width:40ch;margin:0 0 calc(var(--space)*1.75)}
+    .cta-row{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:center;margin-bottom:calc(var(--space)*2.5)}
+    .btn-primary{
+      display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 1.5rem;
+      font-family:var(--font-sans);font-size:var(--text-base);font-weight:600;color:#1a0c07;
+      background:linear-gradient(180deg,var(--hud-amber),var(--hud-orange) 38%,var(--hud-coral));
+      border:none;border-radius:var(--radius);text-decoration:none;box-shadow:var(--shadow-glow);
+      transition:filter var(--transition),transform .16s ease-out;
+    }
+    .btn-primary:hover{filter:brightness(1.06)} .btn-primary:active{filter:brightness(.94);transform:scale(.98)}
+    .btn-secondary{display:inline-flex;align-items:center;min-height:44px;padding:0 1rem;font-weight:500;color:var(--color-text);
+      background:rgba(255,255,255,.03);border:1px solid rgba(252,158,71,.35);border-radius:var(--radius);text-decoration:none;
+      transition:border-color var(--transition),background var(--transition)}
+    .btn-secondary:hover{border-color:rgba(252,158,71,.55);background:rgba(250,130,71,.08)}
+    .bullets{list-style:none;padding:0;margin:0;display:grid;gap:.75rem}
+    .bullets li{position:relative;padding-left:1.5rem;color:var(--color-muted)}
+    .bullets li::before{content:"";position:absolute;left:0;top:.55em;width:.5rem;height:.5rem;border-radius:50%;
+      background:linear-gradient(135deg,var(--hud-amber),var(--hud-coral));opacity:.9}
+    section{padding:calc(var(--space)*2) 0;border-top:1px solid var(--color-border)}
+    section h2{font-family:var(--font-display);font-size:var(--text-xl);font-weight:600;margin:0 0 1rem}
+    .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:calc(var(--radius)+4px);padding:1.25rem 1.5rem;
+      box-shadow:inset 0 1px 0 rgba(255,186,92,.04)}
+    .card p{margin:0 0 .75rem;color:var(--color-muted);font-size:var(--text-sm)}
+    .card p:last-child{margin-bottom:0} .card code{color:var(--hud-amber);font-size:.9em}
+    footer{padding:calc(var(--space)*2) 0 calc(var(--space)*3);font-size:var(--text-sm);color:var(--color-muted)}
+    footer a{color:var(--color-muted)} footer a:hover{color:var(--hud-amber)} footer code{color:var(--hud-orange)}
+    .footer-credit{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--color-border);font-size:.8125rem}
+    .footer-credit a{color:var(--hud-amber)} .footer-credit a:hover{color:var(--hud-gold)}
+    @media (prefers-reduced-motion:no-preference){
+      header .hud-wave,header .eyebrow,header h1,header .lede,header .cta-row,header .bullets{animation:enter .5s ease-out both}
+      header .eyebrow{animation-delay:.04s} header h1{animation-delay:.08s} header .lede{animation-delay:.12s}
+      header .cta-row{animation-delay:.16s} header .bullets{animation-delay:.2s}
+    }
+    @keyframes enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="hud-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <p class="eyebrow">macOS · Menu bar</p>
+      <h1>VoiceInsert</h1>
+      <p class="lede">Hold a shortcut, speak, release—text goes into the focused field or into your Obsidian vault as Markdown. No cloud required for dictation.</p>
+      <div class="cta-row">
+        <a id="download-btn" class="btn-primary" href="#">Download for Mac</a>
+        <a id="repo-link" class="btn-secondary" href="#">Source on GitHub</a>
+      </div>
+      <ul class="bullets" aria-label="Highlights">
+        <li>Works in any app with a text field—Safari, Notes, IDEs, and more.</li>
+        <li>Optional second shortcut saves structured notes under <strong>Voice Captures/</strong> in Obsidian.</li>
+        <li>Microphone and speech stay on device; you control Accessibility and shortcuts in Settings.</li>
+      </ul>
+    </header>
+    <section aria-labelledby="req-heading">
+      <h2 id="req-heading">Requirements</h2>
+      <div class="card">
+        <p class="req"><strong>macOS 13+</strong> · Apple Silicon or Intel (release ZIP matches the CI runner; build locally for your architecture if needed).</p>
+        <p class="req">First launch: if Gatekeeper blocks the app, use <strong>Control-click → Open</strong>, or allow in <strong>System Settings → Privacy &amp; Security</strong>. Ad hoc–signed builds behave like a local <code>./Scripts/build_app.sh</code> run.</p>
+      </div>
+    </section>
+    <section aria-labelledby="perm-heading">
+      <h2 id="perm-heading">Permissions</h2>
+      <div class="card">
+        <p>Microphone, Speech Recognition, Accessibility (and Input Monitoring for some global shortcut modes). The app walks you through what is needed.</p>
+      </div>
+    </section>
+    <footer>
+      <p>
+        <a id="footer-repo" href="#">GitHub repository</a>
+        · MIT License
+        · Not affiliated with Apple Inc.
+      </p>
+      <p style="margin-top:.75rem;font-size:.8125rem;opacity:.85">
+        Download links point to the latest GitHub Release for this repository.
+      </p>
+      <p class="footer-credit">
+        Made by <a href="https://www.linkedin.com/in/vushnevskuu" rel="noopener noreferrer" target="_blank">Alexey Vishnevskiy</a>
+      </p>
+    </footer>
+  </div>
+  <script>
+    (function () {
+      var GITHUB_REPO = "vushnevskuu/push-talk";
+      var dl = document.getElementById("download-btn");
+      var repo = document.getElementById("repo-link");
+      var foot = document.getElementById("footer-repo");
+      var configured = GITHUB_REPO && GITHUB_REPO.indexOf("/") > 0;
+      var base = configured ? "https://github.com/" + GITHUB_REPO : "#";
+      var zip = configured ? base + "/releases/latest/download/VoiceInsert-macos.zip" : "#";
+      if (configured) {
+        dl.href = zip;
+        repo.href = base;
+        foot.href = base;
+      } else {
+        dl.removeAttribute("href");
+        dl.setAttribute("role", "button");
+        dl.setAttribute("aria-disabled", "true");
+        dl.style.opacity = "0.65";
+        dl.style.cursor = "not-allowed";
+        dl.title = "Set GITHUB_REPO in docs/index.html to owner/repo";
+        repo.removeAttribute("href");
+        repo.style.opacity = "0.65";
+        repo.title = "Set GITHUB_REPO in docs/index.html";
+        foot.removeAttribute("href");
+        foot.title = "Set GITHUB_REPO in docs/index.html";
+      }
+    })();
+  </script>
+</body>
+</html>
