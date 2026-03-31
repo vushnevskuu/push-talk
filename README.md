@@ -9,6 +9,27 @@
 
 **CI:** each push/PR runs [VoiceInsert build](.github/workflows/voiceinsert-build.yml) on GitHub (`swift build` + `Scripts/build_app.sh`) so broken installs are caught before users clone.
 
+**Releases:** pushing a git tag matching `v*` (e.g. `v1.0.0`) runs [Release](.github/workflows/release.yml) and attaches **`VoiceInsert-macos.zip`** (and a `.sha256` checksum) to a GitHub Release for that tag.
+
+### Install from GitHub (no Xcode required)
+
+1. Open the **Releases** page for this repository and download **`VoiceInsert-macos.zip`**.
+2. Unzip it. You should see `VoiceInsert.app`.
+3. Drag **`VoiceInsert.app`** into **Applications** (or `~/Applications`).
+4. **First launch:** macOS may block apps that are not Developer ID–signed and notarized. Control-click the app → **Open** → confirm, or allow it under **System Settings → Privacy & Security**. If the app was quarantined by your browser, you can clear the quarantine flag (only if you trust this download):
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/VoiceInsert.app
+   ```
+
+5. Grant **Microphone**, **Speech Recognition**, **Accessibility**, and **Input Monitoring** when prompted (see [Permissions](#permissions) below).
+
+**Trust and signing:** Release ZIPs from CI are **ad hoc**–signed (`codesign -`), same as a local `./Scripts/build_app.sh` build. They are suitable for manual distribution; for the fewest Gatekeeper prompts, a future step is **Apple Developer Program** + **Developer ID** signing + **notarization** (not automated in this repo yet).
+
+**Binary architecture:** Release ZIPs are built on GitHub Actions with `runs-on: macos-latest` (see [`.github/workflows/release.yml`](.github/workflows/release.yml)). The architecture of the downloaded app matches whatever that runner image produces for `swift build` (documented by GitHub for the current `macos-latest` image). If you need **Intel (`x86_64`)** binaries, build locally with `./Scripts/build_app.sh` on an Intel Mac or using a toolchain that targets `x86_64`.
+
+---
+
 This repo contains a working SwiftUI + AppKit MVP:
 
 - Floating hold-to-talk button (mouse)
