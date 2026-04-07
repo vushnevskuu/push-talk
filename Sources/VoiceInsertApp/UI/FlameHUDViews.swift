@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - Flame HUD (Canvas — layered tongues, smoother motion than stacked Shapes)
+// MARK: - Flame HUD (Canvas — одно пламя на весь объём; голос задаёт высоту и качку)
 
-/// Shared geometry for main + side tongue; `bend` shifts the tip horizontally (–1…1 scale in path).
+/// Shared geometry; `bend` сдвигает вершину по горизонтали (масштаб –1…1 внутри path).
 private enum FlameGeometry {
     static func mainPath(in rect: CGRect, bend: CGFloat) -> Path {
         var path = Path()
@@ -27,19 +27,9 @@ private enum FlameGeometry {
         path.closeSubpath()
         return path
     }
-
-    /// Smaller lobe hugging one side (reads as turbulent fire).
-    static func sideLobePath(in rect: CGRect, bend: CGFloat, flip: CGFloat) -> Path {
-        let w = rect.width * 0.52
-        let h = rect.height * 0.58
-        let ox = rect.midX + flip * w * 0.55
-        let oy = rect.maxY - h * 0.08
-        let sub = CGRect(x: ox - w / 2, y: oy - h, width: w, height: h)
-        return mainPath(in: sub, bend: bend * 0.8 + flip * 0.35)
-    }
 }
 
-/// Columns of fire: mic levels set height; time drives organic sway + gentle flicker.
+/// Одно сплошное пламя на всю область `Canvas`: высота и «качка» от микрофона, без отдельных полос.
 struct FlameWaveVisualizer: View {
     let levels: [Double]
     var compact: Bool = false
@@ -56,128 +46,136 @@ struct FlameWaveVisualizer: View {
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
-        let count = max(levels.count, 1)
-        let slot = size.width / CGFloat(count)
+        guard size.width > 2, size.height > 2 else { return }
+
+        let voice = voiceMetrics(from: levels)
         let baseY = size.height - (compact ? 1.5 : 2.5)
-        let minH: CGFloat = compact ? 6 : 8
-        let maxExtra: CGFloat = compact ? 19 : 25
 
-        for (index, rawLevel) in levels.enumerated() {
-            let i = Double(index)
-            let level = CGFloat(clamped(rawLevel))
-            // Breathing: slow swell tied to level (less “nervous” than raw sine stack).
-            let breath = 0.5 + 0.5 * sin(time * 2.1 + i * 0.4)
-            let levelH = minH + level * maxExtra * CGFloat(0.82 + 0.18 * breath)
+        // Тихий минимум — заметное тело; громко — почти вся высота области.
+        let minFrac: CGFloat = compact ? 0.38 : 0.34
+        let minH = max(6, size.height * minFrac)
+        let maxH = size.height * 0.96
+        let breath = 0.5 + 0.5 * sin(time * 2.0)
+        let drive = CGFloat(voice.drive)
+        let baseH = minH + (maxH - minH) * drive * CGFloat(0.78 + 0.22 * breath)
 
-            let flicker = flickerOffset(index: i, time: time, compact: compact)
-            let flameH = max(minH * 0.85, levelH + flicker)
+        let flickerAmp = (compact ? 1.1 : 1.5) * CGFloat(0.55 + 0.45 * drive)
+        let flicker = flickerUnified(time: time, compact: compact) * flickerAmp
+        let flameH = max(minH * 0.9, baseH + flicker)
 
-            let bend = CGFloat(sin(time * 5.2 + i * 0.73) * 0.55 + sin(time * 9.1 + i * 1.05) * 0.22)
-            let lobeFlip: CGFloat = index.isMultiple(of: 2) ? 1 : -1
+        let marginX = size.width * 0.05
+        let flameW = max(8, size.width - 2 * marginX)
+        let rect = CGRect(
+            x: (size.width - flameW) / 2,
+            y: baseY - flameH,
+            width: flameW,
+            height: flameH
+        )
 
-            let colW = compact ? 6.2 : 8.4
-            let cx = slot * (CGFloat(index) + 0.5)
-            let rect = CGRect(
-                x: cx - colW / 2,
-                y: baseY - flameH,
-                width: colW,
-                height: flameH
+        // Наклон: срез уровней слева/справа + плавное качание.
+        let sway = CGFloat(sin(time * 4.8) * 0.35 + sin(time * 8.2) * 0.18)
+        let bend = CGFloat(voice.asymmetry) * 0.85 + sway
+
+        // 1) Bloom
+        let bloomRect = rect.insetBy(dx: -flameW * 0.06, dy: -flameH * 0.05)
+        let bloomPath = FlameGeometry.mainPath(in: bloomRect, bend: bend * 0.88)
+        context.fill(
+            bloomPath,
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color(red: 1.0, green: 0.42, blue: 0.05).opacity(0.42 * Double(0.5 + voice.drive * 0.5)),
+                    Color(red: 0.85, green: 0.1, blue: 0.02).opacity(0.08),
+                    Color.clear
+                ]),
+                center: CGPoint(x: bloomRect.midX, y: bloomRect.maxY - flameH * 0.12),
+                startRadius: 1,
+                endRadius: max(bloomRect.width, bloomRect.height) * 0.92
             )
+        )
 
-            // 1) Soft bloom (wide, transparent)
-            let bloomRect = rect.insetBy(dx: -colW * 0.35, dy: -flameH * 0.06)
-            let bloomPath = FlameGeometry.mainPath(in: bloomRect, bend: bend * 0.85)
-            context.fill(
-                bloomPath,
-                with: .radialGradient(
-                    Gradient(colors: [
-                        Color(red: 1.0, green: 0.42, blue: 0.05).opacity(0.38 * Double(0.55 + level * 0.45)),
-                        Color(red: 0.85, green: 0.1, blue: 0.02).opacity(0.06),
-                        Color.clear
-                    ]),
-                    center: CGPoint(x: bloomRect.midX, y: bloomRect.maxY - flameH * 0.15),
-                    startRadius: 1,
-                    endRadius: max(bloomRect.width, bloomRect.height) * 0.95
-                )
+        context.blendMode = .plusLighter
+
+        // 2) Основное тело
+        let main = FlameGeometry.mainPath(in: rect, bend: bend)
+        context.fill(
+            main,
+            with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.22, green: 0.01, blue: 0.02),
+                    Color(red: 0.72, green: 0.06, blue: 0.02),
+                    Color(red: 0.98, green: 0.32, blue: 0.06),
+                    Color(red: 1.0, green: 0.62, blue: 0.14),
+                    Color(red: 1.0, green: 0.93, blue: 0.62)
+                ]),
+                startPoint: CGPoint(x: rect.midX, y: rect.maxY),
+                endPoint: CGPoint(x: rect.midX + bend * flameW * 0.08, y: rect.minY)
             )
+        )
 
-            // 2) Side tongue (darker, behind main)
-            let side = FlameGeometry.sideLobePath(in: rect, bend: bend, flip: lobeFlip)
-            context.fill(
-                side,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color(red: 0.5, green: 0.02, blue: 0.02),
-                        Color(red: 0.92, green: 0.22, blue: 0.04).opacity(0.88),
-                        Color(red: 1.0, green: 0.55, blue: 0.1).opacity(0.35)
-                    ]),
-                    startPoint: CGPoint(x: rect.midX, y: rect.maxY),
-                    endPoint: CGPoint(x: rect.midX, y: rect.minY)
-                )
+        // 3) Яркое ядро
+        let coreInsetX = flameW * 0.22
+        let coreRect = rect.insetBy(dx: coreInsetX, dy: flameH * 0.1)
+        let corePath = FlameGeometry.mainPath(in: coreRect, bend: bend * 0.78)
+        context.fill(
+            corePath,
+            with: .linearGradient(
+                Gradient(colors: [
+                    Color.orange.opacity(0),
+                    Color(red: 1.0, green: 0.88, blue: 0.45).opacity(0.55),
+                    Color(red: 1.0, green: 0.98, blue: 0.85).opacity(0.92)
+                ]),
+                startPoint: CGPoint(x: coreRect.midX, y: coreRect.minY + coreRect.height * 0.52),
+                endPoint: CGPoint(x: coreRect.midX + bend * 3, y: coreRect.minY)
             )
-            context.blendMode = .plusLighter
+        )
 
-            // 3) Main body
-            let main = FlameGeometry.mainPath(in: rect, bend: bend)
-            context.fill(
-                main,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color(red: 0.22, green: 0.01, blue: 0.02),
-                        Color(red: 0.72, green: 0.06, blue: 0.02),
-                        Color(red: 0.98, green: 0.32, blue: 0.06),
-                        Color(red: 1.0, green: 0.62, blue: 0.14),
-                        Color(red: 1.0, green: 0.93, blue: 0.62)
-                    ]),
-                    startPoint: CGPoint(x: rect.midX, y: rect.maxY),
-                    endPoint: CGPoint(x: rect.midX + bend * colW * 0.15, y: rect.minY)
-                )
+        context.blendMode = .normal
+
+        // 4) Подложка углей на всю ширину
+        let emberH = compact ? 3.0 : 3.8
+        let emberRect = CGRect(x: marginX * 0.85, y: baseY - emberH * 0.4, width: size.width - marginX * 1.7, height: emberH)
+        let cap = Path(roundedRect: emberRect, cornerRadius: emberH / 2, style: .continuous)
+        context.fill(
+            cap,
+            with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.12, green: 0.01, blue: 0.01),
+                    Color(red: 0.38, green: 0.05, blue: 0.02)
+                ]),
+                startPoint: CGPoint(x: emberRect.midX, y: emberRect.minY),
+                endPoint: CGPoint(x: emberRect.midX, y: emberRect.maxY)
             )
-
-            // 4) Hot core (narrow, screen-like punch)
-            let coreRect = rect.insetBy(dx: colW * 0.28, dy: flameH * 0.12)
-            let corePath = FlameGeometry.mainPath(in: coreRect, bend: bend * 0.75)
-            context.fill(
-                corePath,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color.orange.opacity(0),
-                        Color(red: 1.0, green: 0.88, blue: 0.45).opacity(0.55),
-                        Color(red: 1.0, green: 0.98, blue: 0.85).opacity(0.92)
-                    ]),
-                    startPoint: CGPoint(x: coreRect.midX, y: coreRect.minY + coreRect.height * 0.55),
-                    endPoint: CGPoint(x: coreRect.midX + bend * 2, y: coreRect.minY)
-                )
-            )
-
-            context.blendMode = .normal
-
-            // 5) Ember base
-            let emberW = colW * 1.2
-            let emberH = compact ? 3.0 : 3.6
-            let emberRect = CGRect(x: cx - emberW / 2, y: baseY - emberH * 0.35, width: emberW, height: emberH)
-            let cap = Path(roundedRect: emberRect, cornerRadius: emberH / 2, style: .continuous)
-            context.fill(
-                cap,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color(red: 0.12, green: 0.01, blue: 0.01),
-                        Color(red: 0.38, green: 0.05, blue: 0.02)
-                    ]),
-                    startPoint: CGPoint(x: emberRect.midX, y: emberRect.minY),
-                    endPoint: CGPoint(x: emberRect.midX, y: emberRect.maxY)
-                )
-            )
-        }
+        )
     }
 
-    private func flickerOffset(index: Double, time: TimeInterval, compact: Bool) -> CGFloat {
-        let amp: CGFloat = compact ? 1.35 : 1.85
-        // Fewer high-frequency beats → calmer, still “alive”.
-        let a = sin(time * 8.0 + index * 1.1)
-        let b = sin(time * 13.5 + index * 1.7) * 0.45
-        let c = sin(time * 21.0 + index * 0.35) * 0.22
-        return CGFloat(a + b + c) * amp
+    /// Сводка по полосам визуализатора: общая «энергия» и перекос влево/вправо (без отрисовки полос).
+    private func voiceMetrics(from levels: [Double]) -> (drive: Double, asymmetry: Double) {
+        let vals = levels.map { clamped($0) }
+        guard !vals.isEmpty else { return (0.12, 0) }
+
+        let n = vals.count
+        let sum = vals.reduce(0, +)
+        let mean = sum / Double(n)
+        let peak = vals.max() ?? mean
+
+        let mid = n / 2
+        let left = mid > 0 ? vals.prefix(mid).reduce(0, +) / Double(mid) : mean
+        let right = n - mid > 0 ? vals.suffix(n - mid).reduce(0, +) / Double(n - mid) : mean
+        let asym = (right - left) * 1.15
+
+        let tail = min(6, n)
+        let recent = vals.suffix(tail).reduce(0, +) / Double(tail)
+
+        let drive = min(1, max(0, 0.38 * mean + 0.32 * peak + 0.30 * recent))
+        let asymmetry = min(1, max(-1, asym))
+        return (drive, asymmetry)
+    }
+
+    private func flickerUnified(time: TimeInterval, compact: Bool) -> CGFloat {
+        let a = sin(time * 7.5)
+        let b = sin(time * 12.4) * 0.42
+        let c = sin(time * 19.0) * 0.2
+        return CGFloat(a + b + c) * (compact ? 0.9 : 1.0)
     }
 
     private func clamped(_ x: Double) -> Double {
