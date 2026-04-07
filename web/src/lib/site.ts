@@ -30,7 +30,7 @@ export function macAppZipAbsoluteUrl(): string {
 const defaultAuthorName = "Alexander Vishnevsky";
 
 /** Full profile URL; override with NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN. */
-const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vishnevsky/";
+const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vushnevskuu/";
 
 export function siteAuthorName(): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_AUTHOR_NAME?.trim();

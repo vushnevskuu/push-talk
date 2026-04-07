@@ -25,6 +25,13 @@ export function SiteFooter() {
           {authorName}
         </a>
       </p>
+      <p className="site-footer-contact">
+        For any questions, reach out on{" "}
+        <a href={authorLinkedIn} rel="noopener noreferrer" target="_blank">
+          LinkedIn
+        </a>
+        — <strong>English only</strong>, please.
+      </p>
       <p className="site-footer-meta">
         <a href={`${githubBase}/releases`}>GitHub releases</a>
         {" · "}
