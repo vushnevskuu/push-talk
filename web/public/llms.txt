@@ -1,11 +1,19 @@
 # VoiceInsert
 
-> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech. macOS 13+.
+> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech (Speech framework). macOS 13+. Free download as ZIP; no account.
+
+## Summary for indexing
+
+- Product: VoiceInsert — hold-to-talk / push-to-talk dictation for Mac.
+- Differentiator: global shortcut, inserts into frontmost app; optional Obsidian Markdown capture; recognition stays on device (no third-party cloud ASR).
+- Requirements: macOS 13 or later, Apple Silicon or Intel.
 
 ## Site
 
 - Home: /
-- FAQ (macOS dictation, Obsidian, permissions, privacy): /faq
+- FAQ (macOS dictation, Obsidian, permissions, privacy, Gatekeeper): /faq
+- Sitemap: /sitemap.xml
+- Robots: /robots.txt
 
 ## Source
 

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { getSiteUrl, siteDescription } from "@/lib/site";
+import { getSiteUrl, siteDescription, siteOgImagePath, siteOgImageSize } from "@/lib/site";
 import "./globals.css";
 
 const siteUrl = getSiteUrl();
@@ -27,11 +27,20 @@ export const metadata: Metadata = {
     title: "VoiceInsert — Hold-to-talk dictation for Mac",
     description: siteDescription,
     url: siteUrl.origin,
+    images: [
+      {
+        url: siteOgImagePath,
+        width: siteOgImageSize.width,
+        height: siteOgImageSize.height,
+        alt: "VoiceInsert — hold-to-talk dictation for macOS",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "VoiceInsert — Hold-to-talk dictation for Mac",
     description: siteDescription,
+    images: [siteOgImagePath],
   },
   robots: {
     index: true,

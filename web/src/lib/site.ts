@@ -22,9 +22,17 @@ export function siteOrigin(): string {
 /** Mac app bundle ZIP served from `web/public`. */
 export const macAppZipPath = "/VoiceInsert-macos.zip";
 
-/** Default meta / JSON-LD description: one clear line, no navigation fluff. */
+/**
+ * Default meta / JSON-LD description (~150–160 chars for SERP snippets).
+ * Clear value prop + entities (Mac, Obsidian, on-device) for SEO and GEO.
+ */
 export const siteDescription =
-  "VoiceInsert: hold-to-talk dictation for Mac. On-device speech; text in any focused app or Obsidian. macOS 13+.";
+  "VoiceInsert: hold-to-talk Mac dictation. Press shortcut, speak, release — text in Slack, Safari, Cursor, Obsidian. On-device Apple speech. Free. macOS 13+.";
+
+/** Social preview (Open Graph / Twitter). PNG in `web/public`. */
+export const siteOgImagePath = "/logo-whispering-imps.png";
+
+export const siteOgImageSize = { width: 420, height: 340 } as const;
 
 /**
  * Tip link: Vercel env first, then optional hardcoded fallback (one place if you skip env).

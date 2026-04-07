@@ -118,7 +118,11 @@ export default function HomeClient() {
 
       <ImpDivider />
 
-      <section className="landing-details landing-reveal landing-reveal-delay-2" aria-labelledby="details-heading">
+      <section
+        id="requirements"
+        className="landing-details landing-reveal landing-reveal-delay-2"
+        aria-labelledby="details-heading"
+      >
         <h2 id="details-heading" className="landing-h2">
           Requirements
         </h2>

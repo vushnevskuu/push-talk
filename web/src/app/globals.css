@@ -867,6 +867,124 @@ footer {
   margin-top: 1rem;
 }
 
+/* FAQ на фоне главной: DM Sans, розовые акценты, bullet + свеча */
+.page-whispering-imps .landing-whisper.faq-page {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.page-whispering-imps .faq-page .faq-header {
+  margin-top: -0.5rem;
+  padding-bottom: 0;
+}
+
+.page-whispering-imps .faq-page .faq-intro {
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.page-whispering-imps .faq-page .faq-hint {
+  margin: 0 0 0.25rem;
+  font-size: 16px;
+  color: var(--imp-muted);
+  max-width: 100%;
+  line-height: 1.65;
+}
+
+.page-whispering-imps .faq-page .faq-accordion-section {
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+.page-whispering-imps .faq-page .faq-details {
+  background: transparent;
+  border: 1px solid var(--imp-rule);
+  border-radius: 0;
+}
+
+.page-whispering-imps .faq-page .faq-details[open] {
+  border-color: rgba(222, 81, 108, 0.45);
+  box-shadow: none;
+}
+
+.page-whispering-imps .faq-page .faq-summary {
+  color: var(--imp-ink);
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.page-whispering-imps .faq-page .faq-summary::after {
+  border-right-color: var(--imp-accent-rose);
+  border-bottom-color: var(--imp-accent-rose);
+  margin-top: 0.4em;
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.page-whispering-imps .faq-page .faq-details[open] .faq-summary::after {
+  margin-top: 0.4em;
+}
+
+.page-whispering-imps .faq-page .faq-summary:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--imp-accent-rose);
+}
+
+.page-whispering-imps .faq-page .faq-summary-mark {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 0;
+  padding-top: 0.12em;
+}
+
+.page-whispering-imps .faq-page .faq-summary-bullet {
+  display: block;
+  width: clamp(1.65rem, 9vw, 2.35rem);
+  height: auto;
+}
+
+.page-whispering-imps .faq-page .faq-summary-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.page-whispering-imps .faq-page .faq-panel {
+  border-top-color: var(--imp-rule);
+  padding: 0.35rem 0.75rem 0.65rem;
+  padding-left: calc(0.75rem + clamp(1.65rem, 9vw, 2.35rem) + 0.5rem);
+  text-align: left;
+}
+
+.page-whispering-imps .faq-page .faq-answer {
+  color: var(--imp-muted);
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.55;
+  max-width: 65ch;
+}
+
+.page-whispering-imps .faq-page .faq-cta {
+  margin-top: 0;
+  border-top: none;
+  padding: 0;
+  max-width: 100%;
+}
+
+.page-whispering-imps .faq-page .faq-cta-lede {
+  margin-top: 0.75rem;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
 /* —— VoiceInsert landing (home): светлый фон, бордовые акценты —— */
 body:has(.page-whispering-imps) {
   background: #ffffff;

@@ -2,7 +2,15 @@ import type { Metadata, Viewport } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { macAppZipAbsoluteUrl, siteDescription, siteOrigin } from "@/lib/site";
+import {
+  macAppZipAbsoluteUrl,
+  siteAuthorLinkedInUrl,
+  siteAuthorName,
+  siteDescription,
+  siteOgImagePath,
+  siteOgImageSize,
+  siteOrigin,
+} from "@/lib/site";
 import HomeClient from "./HomeClient";
 
 const description = siteDescription;
@@ -29,11 +37,20 @@ export const metadata: Metadata = {
     title: "VoiceInsert — Hold-to-talk dictation for Mac",
     description,
     url: "/",
+    images: [
+      {
+        url: siteOgImagePath,
+        width: siteOgImageSize.width,
+        height: siteOgImageSize.height,
+        alt: "VoiceInsert — hold-to-talk dictation for macOS",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "VoiceInsert — Hold-to-talk dictation for Mac",
     description,
+    images: [siteOgImagePath],
   },
 };
 
@@ -51,17 +68,37 @@ export default function HomePage() {
     "@type": "SoftwareApplication",
     name: "VoiceInsert",
     applicationCategory: "UtilitiesApplication",
-    operatingSystem: "macOS 13+",
+    operatingSystem: "macOS",
+    operatingSystemVersion: "macOS 13 or later",
     description,
     url: origin,
     downloadUrl: macAppZipAbsoluteUrl(),
+    softwareHelp: `${origin}/faq`,
     isAccessibleForFree: true,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+      url: macAppZipAbsoluteUrl(),
+    },
+    author: {
+      "@type": "Person",
+      name: siteAuthorName(),
+      url: siteAuthorLinkedInUrl(),
+    },
     publisher: {
       "@type": "Organization",
       name: "VoiceInsert",
       url: origin,
+      sameAs: [github],
     },
-    sameAs: [github],
+    featureList: [
+      "Hold-to-talk global dictation shortcut",
+      "Inserts transcribed text into the focused application",
+      "Optional Obsidian vault Markdown capture",
+      "On-device speech recognition via Apple Speech framework",
+    ],
   };
 
   const websiteJsonLd = {
@@ -71,6 +108,12 @@ export default function HomePage() {
     url: origin,
     description,
     inLanguage: "en-US",
+    publisher: {
+      "@type": "Organization",
+      name: "VoiceInsert",
+      url: origin,
+      sameAs: [github],
+    },
   };
 
   return (
