@@ -905,13 +905,43 @@ body:has(.page-whispering-imps) {
   pointer-events: none;
   background:
     url("/whispering-imps-motif.png") no-repeat 102% -4% / min(380px, 52vw);
-  opacity: 0.09;
+  opacity: 0.075;
   mix-blend-mode: multiply;
 }
 
 .page-whispering-imps > * {
   position: relative;
   z-index: 1;
+}
+
+.page-whispering-imps > .whisper-starfield {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.whisper-starfield-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .whisper-starfield {
+    animation: whisper-starfield-breathe 7s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes whisper-starfield-breathe {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 body:has(.page-whispering-imps) .skip-link {
@@ -1030,7 +1060,7 @@ body:has(.page-whispering-imps) .skip-link {
   background-clip: unset;
   color: var(--imp-crimson-dark);
   text-shadow: none;
-  margin: 0.35rem 0 0;
+  margin: 0.5rem 0 0;
 }
 
 .page-whispering-imps .landing-whisper .eyebrow {
@@ -1044,8 +1074,9 @@ body:has(.page-whispering-imps) .skip-link {
 .page-whispering-imps .imp-era-tag {
   margin: 0.35rem 0 0.85rem;
   max-width: 40rem;
-  font-family: "IM Fell English", Georgia, serif;
-  font-size: 0.98rem;
+  font-family: "Cormorant Garamond", "IM Fell English", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 500;
   font-style: italic;
   color: var(--imp-muted);
   line-height: 1.45;
@@ -1073,26 +1104,6 @@ body:has(.page-whispering-imps) .skip-link {
   flex-direction: column;
   align-items: center;
   text-align: center;
-}
-
-.page-whispering-imps .imp-hero-monogram {
-  margin: 0 0 0.15rem;
-  padding: 0.35rem 0.5rem;
-  border: 2px solid var(--imp-crimson);
-  box-shadow:
-    inset 0 0 0 1px var(--imp-bg),
-    3px 3px 0 var(--imp-crimson-soft);
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.page-whispering-imps .imp-hero-sheet-cut {
-  display: block;
-  width: min(200px, 52vw);
-  height: auto;
-  max-height: 140px;
-  object-fit: contain;
-  mix-blend-mode: multiply;
-  filter: contrast(1.2) brightness(0.9) sepia(0.32) saturate(2.6) hue-rotate(318deg);
 }
 
 .page-whispering-imps .imp-flourish-svg {

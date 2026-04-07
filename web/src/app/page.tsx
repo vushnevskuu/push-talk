@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { WhisperStarfield } from "@/components/WhisperStarfield";
 import { macAppZipAbsoluteUrl, siteOrigin } from "@/lib/site";
 import HomeClient from "./HomeClient";
 
@@ -78,6 +79,7 @@ export default function HomePage() {
     <>
       <JsonLd data={[softwareJsonLd, websiteJsonLd]} />
       <div className="page-whispering-imps">
+        <WhisperStarfield />
         <SiteHeader landingMode />
         <HomeClient />
         <SiteFooter landingMode />

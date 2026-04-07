@@ -45,16 +45,6 @@ export default function HomeClient() {
         <div className="imp-hero-cluster">
           <ImpCornerFlourish />
           <div className="imp-hero-center">
-            <div className="imp-hero-monogram" aria-hidden="true">
-              <img
-                className="imp-hero-sheet-cut"
-                src="/logo-whispering-imps.png"
-                alt=""
-                width={200}
-                height={162}
-                decoding="async"
-              />
-            </div>
             <h1 id="landing-title">VoiceInsert</h1>
           </div>
           <ImpCornerFlourish flip />
