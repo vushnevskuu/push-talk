@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { siteOrigin } from "@/lib/site";
+import { macAppZipAbsoluteUrl, siteOrigin } from "@/lib/site";
 import HomeClient from "./HomeClient";
 
 const description =
@@ -51,7 +51,7 @@ export default function HomePage() {
     operatingSystem: "macOS 13+",
     description,
     url: origin,
-    downloadUrl: `${github}/releases/latest/download/VoiceInsert-macos.zip`,
+    downloadUrl: macAppZipAbsoluteUrl(),
     isAccessibleForFree: true,
     publisher: {
       "@type": "Organization",

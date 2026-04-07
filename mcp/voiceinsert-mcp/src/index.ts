@@ -125,14 +125,16 @@ server.registerTool(
   async () => {
     const base = siteUrl();
     const repo = githubRepo();
-    const zip = `https://github.com/${repo}/releases/latest/download/VoiceInsert-macos.zip`;
+    const siteZip = `${base}/VoiceInsert-macos.zip`;
+    const githubZipMirror = `https://github.com/${repo}/releases/latest/download/VoiceInsert-macos.zip`;
     const payload = {
       site_home: `${base}/`,
       faq: `${base}/faq`,
-      download_zip: zip,
+      download_zip: siteZip,
+      github_releases_zip_mirror: githubZipMirror,
       github_repo: `https://github.com/${repo}`,
       note:
-        "Official builds may require an active trial or subscription; user pastes access token from the billing flow into the app Settings → Subscription.",
+        "Primary Mac ZIP is served from the marketing site (same origin as checkout). Mirror may exist on GitHub Releases. Subscription: user pastes access token from the billing flow into the app Settings → Subscription.",
     };
     return {
       content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],

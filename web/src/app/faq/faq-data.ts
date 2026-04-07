@@ -23,7 +23,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Which macOS version does VoiceInsert support?",
     answer:
-      "VoiceInsert targets macOS 13 (Ventura) and later. It runs on Apple Silicon and Intel. Download the release ZIP from the public GitHub Releases page (this site links there) or the homepage; if Gatekeeper blocks the app, use Control-click → Open once.",
+      "VoiceInsert targets macOS 13 (Ventura) and later. It runs on Apple Silicon and Intel. Download the release ZIP from this site (Download for Mac); a copy may also appear on the public GitHub Releases page. If Gatekeeper blocks the app, use Control-click → Open once.",
   },
   {
     question: "Can I dictate into Cursor, VS Code, or other IDEs?",
@@ -83,7 +83,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Where can I download VoiceInsert?",
     answer:
-      "Use the Download for Mac link on this site — it points at the public GitHub Releases ZIP (source code is not in that repo). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
+      "Use the Download for Mac link on this site — the ZIP is hosted on the same domain as checkout (not the private source repo). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
   },
   {
     question: "Is VoiceInsert safe? Is the source code public?",

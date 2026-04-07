@@ -10,7 +10,7 @@ export default function HomeClient() {
   const [error, setError] = useState<string | null>(null);
 
   const githubBase = `https://github.com/${defaultRepo}`;
-  const zipUrl = `${githubBase}/releases/latest/download/VoiceInsert-macos.zip`;
+  const zipUrl = "/VoiceInsert-macos.zip";
 
   async function startTrial() {
     setError(null);
@@ -76,8 +76,8 @@ export default function HomeClient() {
               <a className="btn-primary" href={zipUrl}>
                 Download for Mac
               </a>
-              <a className="btn-secondary" href={githubBase} rel="noopener noreferrer">
-                GitHub Releases
+              <a className="btn-secondary" href={`${githubBase}/releases`} rel="noopener noreferrer">
+                GitHub (changelog)
               </a>
             </div>
           </div>

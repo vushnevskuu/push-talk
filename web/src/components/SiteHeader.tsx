@@ -1,8 +1,9 @@
+import { macAppZipPath } from "@/lib/site";
+
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
 export function SiteHeader() {
   const githubBase = `https://github.com/${defaultRepo}`;
-  const zipUrl = `${githubBase}/releases/latest/download/VoiceInsert-macos.zip`;
 
   return (
     <header className="site-header" role="banner">
@@ -17,7 +18,7 @@ export function SiteHeader() {
           <a className="nav-link" href="/faq">
             FAQ
           </a>
-          <a className="nav-link nav-link-cta" href={zipUrl}>
+          <a className="nav-link nav-link-cta" href={macAppZipPath}>
             Download
           </a>
           <a className="nav-link nav-link-muted" href={githubBase} rel="noopener noreferrer">

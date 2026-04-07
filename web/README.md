@@ -16,6 +16,17 @@
 
 Deploy this folder to **Vercel** with **Root Directory** = `web`.
 
+## Mac app download (`public/VoiceInsert-macos.zip`)
+
+The homepage and `/success` link to **`/VoiceInsert-macos.zip`** (static file). After each app release, rebuild from the repo root and overwrite the file:
+
+```bash
+CI=1 VOICEINSERT_ENTITLEMENT_BASE_URL="https://YOUR_SITE" ./Scripts/build_app.sh
+ditto -c -k --keepParent Build/VoiceInsert.app web/public/VoiceInsert-macos.zip
+```
+
+Then commit the new ZIP and deploy. The URL must match **`VoiceInsertEntitlementBaseURL`** embedded in that build.
+
 ## SEO & analytics
 
 - Set **`NEXT_PUBLIC_SITE_URL`** (and **`NEXT_PUBLIC_APP_URL`**) to your live `https://…` origin so `metadataBase`, **sitemap.xml**, **robots.txt**, and JSON-LD use correct canonical URLs.

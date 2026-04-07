@@ -19,6 +19,13 @@ export function siteOrigin(): string {
   return getSiteUrl().origin;
 }
 
+/** Mac app bundle ZIP served from `web/public` (same origin as the billing site). */
+export const macAppZipPath = "/VoiceInsert-macos.zip";
+
+export function macAppZipAbsoluteUrl(): string {
+  return `${siteOrigin()}${macAppZipPath}`;
+}
+
 /** Shown in footer; override with NEXT_PUBLIC_SITE_AUTHOR_NAME on Vercel. */
 const defaultAuthorName = "Alexander Vishnevsky";
 

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 
 const publicRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 const githubBase = `https://github.com/${publicRepo}`;
-const macZipUrl = `${githubBase}/releases/latest/download/VoiceInsert-macos.zip`;
+const macZipUrl = "/VoiceInsert-macos.zip";
 
 function SuccessInner() {
   const sp = useSearchParams();
@@ -80,7 +80,7 @@ function SuccessInner() {
         <div className="card success-download" aria-label="Download Mac app">
           <h2 className="claim-card-title">1. Download VoiceInsert for Mac</h2>
           <p className="path-card-desc">
-            Official build (ZIP) from the public GitHub Releases page — same link as on the homepage.
+            Official build (ZIP) from this site — same file as the homepage Download button.
           </p>
           <div className="cta-row path-card-cta">
             <a className="btn-primary" href={macZipUrl} rel="noopener noreferrer">
