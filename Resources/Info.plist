@@ -28,5 +28,7 @@
     <string>VoiceInsert needs Automation access to tell System Events to paste dictated text into apps that do not expose a normal text field.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>VoiceInsert needs speech recognition access to turn your voice into text.</string>
+    <key>VoiceInsertEntitlementBaseURL</key>
+    <string></string>
 </dict>
 </plist>

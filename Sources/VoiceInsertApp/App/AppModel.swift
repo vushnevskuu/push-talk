@@ -17,6 +17,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var dictationLanguage = AppModel.loadDictationLanguage()
     @Published private(set) var requiresInitialSetup = AppModel.loadRequiresInitialSetup()
     @Published private(set) var obsidianVaultPath = AppModel.loadObsidianVaultPath()
+    /// When `VoiceInsertEntitlementBaseURL` is set, dictation is allowed only if `/api/entitlement` succeeds.
+    @Published private(set) var subscriptionAccessAllowed = !EntitlementConfig.isEnforcementEnabled
+    @Published private(set) var subscriptionStatusLine = ""
+    @Published private(set) var entitlementCheckInFlight = false
+    @Published private(set) var hasStoredSubscriptionToken = SubscriptionTokenKeychain.load() != nil
+    /// Paste a new token here in Settings → Subscription (never shown after save).
+    @Published var subscriptionTokenDraft = ""
+    private var lastEntitlementCheckAt: Date?
+    private var lastSuccessfulEntitlementCheck: Date?
+    private var entitlementLastKnownGood = false
     @Published var isRecordingShortcut = false {
         didSet {
             synchronizeRecorderState(changed: .fieldInsert)
@@ -81,6 +91,10 @@ final class AppModel: ObservableObject {
         hotkeyMonitor.start()
         obsidianHotkeyMonitor.start()
 
+        if EntitlementConfig.isEnforcementEnabled {
+            subscriptionStatusLine = "Verifying subscription…"
+        }
+
         speechService.cancelSession()
         recordingHUDController.hide()
 
@@ -99,6 +113,7 @@ final class AppModel: ObservableObject {
             await refreshPermissions()
             await requestEssentialPermissionsIfNeeded()
             prewarmSpeechPipeline()
+            await refreshSubscriptionEntitlement(force: true)
         }
 
         autotestTriggerTask = Task { @MainActor [weak self] in
@@ -112,6 +127,9 @@ final class AppModel: ObservableObject {
     var titleText: String {
         switch phase {
         case .idle:
+            if EntitlementConfig.isEnforcementEnabled, !subscriptionAccessAllowed {
+                return "Subscription Required"
+            }
             return permissions.essentialsGranted ? "Hold to Dictate" : "Permissions Needed"
         case .recording:
             return activeCaptureDestination == .obsidianVault ? "Listening for Obsidian..." : "Listening..."
@@ -127,6 +145,11 @@ final class AppModel: ObservableObject {
 
         switch phase {
         case .idle:
+            if EntitlementConfig.isEnforcementEnabled, !subscriptionAccessAllowed {
+                return subscriptionStatusLine.isEmpty
+                    ? "Open Settings → Subscription and paste the access token from the website."
+                    : subscriptionStatusLine
+            }
             if permissions.essentialsGranted {
                 if permissions.inputMonitoring != .authorized {
                     return "Enable Input Monitoring so your shortcut works in other apps and the chosen key stops leaking into them."
@@ -265,6 +288,20 @@ final class AppModel: ObservableObject {
             return
         }
 
+        if EntitlementConfig.isEnforcementEnabled {
+            if !subscriptionAccessAllowed {
+                statusMessage = subscriptionStatusLine.isEmpty
+                    ? "Active subscription required. Open Settings → Subscription."
+                    : subscriptionStatusLine
+                NSSound.beep()
+                openSettings()
+                return
+            }
+            if entitlementRecheckRecommended {
+                Task { await refreshSubscriptionEntitlement(force: false) }
+            }
+        }
+
         if permissions.microphone != .authorized || permissions.speech != .authorized {
             refreshPermissionsImmediately()
         }
@@ -383,6 +420,119 @@ final class AppModel: ObservableObject {
     func refreshPermissionsFromUI() {
         Task {
             await refreshPermissions()
+        }
+    }
+
+    func refreshSubscriptionEntitlementFromHost() {
+        Task {
+            await refreshSubscriptionEntitlement(force: false)
+        }
+    }
+
+    func refreshSubscriptionStatusNow() {
+        Task {
+            await refreshSubscriptionEntitlement(force: true)
+        }
+    }
+
+    /// Call when opening Settings → Subscription so the token field starts empty (secret is not re-displayed).
+    func prepareSubscriptionSettingsSection() {
+        subscriptionTokenDraft = ""
+        hasStoredSubscriptionToken = SubscriptionTokenKeychain.load() != nil
+    }
+
+    func openVoiceInsertBillingWebsite() {
+        guard let base = EntitlementConfig.baseURLString, let url = URL(string: base) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func saveSubscriptionTokenFromDraft() {
+        let raw = subscriptionTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return }
+        do {
+            try SubscriptionTokenKeychain.save(raw)
+            subscriptionTokenDraft = ""
+            hasStoredSubscriptionToken = true
+            Task {
+                await refreshSubscriptionEntitlement(force: true)
+            }
+        } catch {
+            subscriptionStatusLine = "Could not save token to Keychain."
+            NSSound.beep()
+        }
+    }
+
+    func clearSubscriptionToken() {
+        SubscriptionTokenKeychain.delete()
+        hasStoredSubscriptionToken = false
+        subscriptionTokenDraft = ""
+        entitlementLastKnownGood = false
+        lastSuccessfulEntitlementCheck = nil
+        subscriptionAccessAllowed = false
+        subscriptionStatusLine = "Token removed. Add a token from the website after subscribing."
+        Task {
+            await refreshSubscriptionEntitlement(force: true)
+        }
+    }
+
+    private var entitlementRecheckRecommended: Bool {
+        guard EntitlementConfig.isEnforcementEnabled, subscriptionAccessAllowed else { return false }
+        guard let last = lastSuccessfulEntitlementCheck else { return true }
+        return Date().timeIntervalSince(last) > 600
+    }
+
+    private func refreshSubscriptionEntitlement(force: Bool) async {
+        guard EntitlementConfig.isEnforcementEnabled else {
+            subscriptionAccessAllowed = true
+            subscriptionStatusLine = ""
+            entitlementCheckInFlight = false
+            return
+        }
+
+        if !force, let last = lastEntitlementCheckAt, Date().timeIntervalSince(last) < 45 {
+            return
+        }
+
+        guard let base = EntitlementConfig.baseURLString else {
+            subscriptionAccessAllowed = false
+            subscriptionStatusLine = "App is missing billing configuration (VoiceInsertEntitlementBaseURL)."
+            return
+        }
+
+        guard let token = SubscriptionTokenKeychain.load() else {
+            hasStoredSubscriptionToken = false
+            subscriptionAccessAllowed = false
+            subscriptionStatusLine = "Paste the access token from the website (after checkout) into Settings → Subscription."
+            lastEntitlementCheckAt = Date()
+            return
+        }
+
+        hasStoredSubscriptionToken = true
+        entitlementCheckInFlight = true
+        lastEntitlementCheckAt = Date()
+        let result = await EntitlementAPI.check(baseURL: base, rawToken: token)
+        entitlementCheckInFlight = false
+
+        switch result {
+        case .allowed(let summary):
+            entitlementLastKnownGood = true
+            subscriptionAccessAllowed = true
+            subscriptionStatusLine = summary
+            lastSuccessfulEntitlementCheck = Date()
+        case .denied(let message):
+            entitlementLastKnownGood = false
+            subscriptionAccessAllowed = false
+            subscriptionStatusLine = message
+            lastSuccessfulEntitlementCheck = nil
+        case .transportFailure(let description):
+            if entitlementLastKnownGood {
+                subscriptionAccessAllowed = true
+                subscriptionStatusLine =
+                    "Offline or server unreachable (\(description)). Last successful check still allows dictation; reconnect to refresh."
+            } else {
+                subscriptionAccessAllowed = false
+                subscriptionStatusLine = "Can’t verify subscription: \(description)"
+            }
         }
     }
 

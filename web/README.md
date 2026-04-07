@@ -46,9 +46,16 @@ There is an unlinked page **`/gate`** (not advertised on the home page) that acc
 
 ## macOS app
 
-Set **VoiceInsertEntitlementBaseURL** in `Resources/Info.plist` (and packaging copy) to the same origin as `NEXT_PUBLIC_APP_URL` (no trailing slash). Leave empty to **disable** subscription UI and enforcement (open-source / local builds).
+Set **VoiceInsertEntitlementBaseURL** in `Resources/Info.plist` to the same origin as your deployed site (no trailing slash), or inject it at package time:
 
-CI or local automation can set environment variable **`VOICEINSERT_SKIP_ENTITLEMENT=1`** to bypass checks.
+```bash
+VOICEINSERT_ENTITLEMENT_BASE_URL=https://your-domain.vercel.app ./Scripts/build_app.sh
+```
+
+Leave the plist value **empty** to **disable** subscription checks (local development).  
+CI smoke tests and local runs can also use **`VOICEINSERT_SKIP_ENTITLEMENT=1`** to bypass enforcement.
+
+GitHub **Release** workflow (tags `v*`) sets `VOICEINSERT_ENTITLEMENT_BASE_URL` so published ZIPs require a valid token and active subscription/trial.
 
 ## Legacy static page
 

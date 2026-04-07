@@ -64,34 +64,42 @@ function SuccessInner() {
   }
 
   return (
-    <div className="wrap">
-      <header style={{ paddingBlock: "3rem 2rem" }}>
+    <div className="wrap page-simple">
+      <header className="page-simple-header">
         <p className="eyebrow">VoiceInsert</p>
         <h1>Almost there</h1>
-        <p className="lede">
-          If Airwallex did not append the checkout id to this page URL, paste it from your browser history or Airwallex
-          confirmation. Then generate your app access token once and store it in VoiceInsert → Settings.
+        <p className="lede page-simple-lede">
+          If the checkout id is missing from this URL, copy it from your payment confirmation or browser history. Then
+          generate your token once and paste it in the app.
         </p>
 
+        <ol className="success-steps" aria-label="Steps after checkout">
+          <li>Paste or confirm the billing checkout id below.</li>
+          <li>Click <strong>Generate access token</strong>.</li>
+          <li>Open VoiceInsert → Settings → Subscription and paste the token.</li>
+        </ol>
+
         <div className="card">
-          <h2 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: "1.35rem", marginTop: 0 }}>Claim access</h2>
+          <h2 className="claim-card-title">Claim access</h2>
           <label htmlFor="cid">Billing checkout id</label>
           <input
             id="cid"
+            className="input-field"
             type="text"
             name="checkoutId"
             autoComplete="off"
             placeholder="e.g. bc_…"
             value={checkoutId}
             onChange={(e) => setCheckoutId(e.target.value)}
-            style={{ maxWidth: "100%" }}
           />
           {error ? <p className="err">{error}</p> : null}
-          <div style={{ marginTop: "1rem" }}>
+          <div className="trial-actions">
             <button
               type="button"
               className="btn-primary"
               disabled={loading || checkoutId.trim().length < 8}
+              aria-busy={loading}
+              aria-label={loading ? "Generating token" : "Generate access token"}
               onClick={() => void claim()}
             >
               {loading ? "Working…" : "Generate access token"}
@@ -99,34 +107,22 @@ function SuccessInner() {
           </div>
 
           {token ? (
-            <div style={{ marginTop: "1.5rem" }}>
-              <p style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>
+            <div className="token-result">
+              <p className="token-result-copy">
                 Your token (shown once). Paste into the macOS app Settings → Subscription.
                 {email ? (
                   <>
                     <br />
-                    Email on file: <strong style={{ color: "var(--color-text)" }}>{email}</strong>
+                    Email on file: <strong className="token-result-email">{email}</strong>
                   </>
                 ) : null}
               </p>
-              <pre
-                style={{
-                  marginTop: "0.75rem",
-                  padding: "1rem",
-                  background: "rgba(0,0,0,0.35)",
-                  borderRadius: 8,
-                  overflow: "auto",
-                  fontSize: "0.85rem",
-                  wordBreak: "break-all",
-                }}
-              >
-                {token}
-              </pre>
+              <pre className="token-block">{token}</pre>
             </div>
           ) : null}
         </div>
 
-        <p style={{ marginTop: "2rem" }}>
+        <p className="page-simple-footer-link">
           <a href="/">← Back to home</a>
         </p>
       </header>

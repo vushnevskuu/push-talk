@@ -1042,3 +1042,24 @@ Use this file to preserve:
 - Warnings: `voiceinsert_hotkey_activation_inconclusive`
 - Crash triage: no new crash reports in this run.
 - Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Incident 2026-04-07 17:43:34 +07
+
+- Status: `verified` (see below — required two fixes)
+- Report: `VoiceInsert-2026-04-07-174334.ips`, `VoiceInsert-2026-04-07-174559.ips`, …
+- Faulting thread: `RealtimeMessenger.mServiceQueue` (audio tap)
+- Top app frame: `closure #1 in SpeechRecognitionService.ensureUnifiedInputTapAndEngineStarted()`
+- Symptom: immediate `EXC_BREAKPOINT` / `_dispatch_assert_queue_fail` → `_swift_task_checkIsolatedSwift` when buffers hit the tap.
+- Confirmed root cause (full): (1) **`installTap`’s block** was a closure literal inside a `@MainActor` method, so it inherited MainActor isolation even though only `tapBridge.process` ran there. (2) Separately, the level sink must not be a MainActor closure stored for realtime invocation — use `@Sendable` + `Task { @MainActor … }`.
+- Affected area: `Sources/VoiceInsertApp/Transcription/SpeechRecognitionService.swift`
+- Fix: (1) `onLevel` as `@Sendable (Double) -> Void` with `{ @Sendable level in Task { @MainActor … } }`. (2) File-scope `voiceInsertInputTapBlock(bridge:)` returning `AVAudioNodeTapBlock` so the tap block is **not** formed inside the actor type.
+- Verification: `Artifacts/macos-app-autotest/20260407-174715/report.json` — `crashes.new_reports`: `[]`, `issues`: `[]`; build via `./Scripts/build_app.sh`, test app `~/Applications/VoiceInsert.app`.
+
+## Run 2026-04-07 17:47:48
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Applications/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260407-174715`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.

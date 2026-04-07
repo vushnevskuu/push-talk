@@ -53,7 +53,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Is VoiceInsert free or paid?",
     answer:
-      "The project is open source (MIT) on GitHub. Hosted builds may offer a paid trial and subscription for convenience; check the official download page for current pricing. You can also build from source if you prefer.",
+      "Distribution from this site uses a paid flow: a small charge (e.g. $1) can start a time-limited trial, then a monthly subscription while you want access. The Mac app phones home to confirm your trial or billing period before enabling dictation. Pricing on the download page is authoritative.",
   },
   {
     question: "What languages does VoiceInsert support for dictation?",
@@ -83,12 +83,12 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Where can I download VoiceInsert?",
     answer:
-      "Download the latest VoiceInsert-macos.zip from the project’s GitHub Releases page (see the GitHub link on the homepage). Verify the repository matches the maintainer you trust before installing.",
+      "Use the Download for Mac link on this site (GitHub Releases ZIP). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
   },
   {
     question: "Is VoiceInsert safe? Is the code open source?",
     answer:
-      "The application is MIT-licensed and the source is on GitHub for review. As with any app that uses Accessibility, only install builds you trust. Review the repository and release artifacts before granting sensitive permissions.",
+      "Treat it like any menu-bar utility that uses Accessibility: only install builds from sources you trust. The distributed app verifies subscription over HTTPS and stores your access token in the macOS Keychain. Whether source code is published is up to the maintainer; closed-source builds are common for paid Mac tools even though the binary can still be inspected by experts.",
   },
   {
     question: "Why does Gatekeeper block VoiceInsert?",
@@ -98,6 +98,6 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "How do I cancel or manage a VoiceInsert subscription?",
     answer:
-      "If you subscribed through the project’s billing page (e.g. Airwallex), manage or cancel payment in the provider’s customer portal or email receipts. Open-source users building from GitHub generally do not need a subscription unless the maintainer’s hosted build requires it.",
+      "If you subscribed through this site’s billing provider (e.g. Airwallex), use the customer portal or links from your payment receipts to cancel or update the card. When the subscription ends, the app will stop passing the online check and dictation will be disabled until you renew.",
   },
 ];

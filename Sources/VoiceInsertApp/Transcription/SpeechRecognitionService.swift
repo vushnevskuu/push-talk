@@ -24,18 +24,91 @@ private struct RecognitionCallbackError: LocalizedError, Sendable {
     }
 }
 
-private enum InputTapMode {
-    case none
-    case idleWarmup
-    case recognition
+/// RMS → 0…1 meter level (shared by tap + any future call sites).
+private enum TapAudioMath {
+    nonisolated static func normalizedLevel(from buffer: AVAudioPCMBuffer) -> Double {
+        let frameLength = Int(buffer.frameLength)
+        guard frameLength > 0 else { return 0 }
+
+        if let channelData = buffer.floatChannelData {
+            let samples = channelData[0]
+            var sum: Float = 0
+            for index in 0..<frameLength {
+                let sample = samples[index]
+                sum += sample * sample
+            }
+            return normalizedUnit(fromRMS: sqrt(sum / Float(frameLength)))
+        }
+
+        if let channelData = buffer.int16ChannelData {
+            let samples = channelData[0]
+            var sum: Float = 0
+            for index in 0..<frameLength {
+                let sample = Float(samples[index]) / Float(Int16.max)
+                sum += sample * sample
+            }
+            return normalizedUnit(fromRMS: sqrt(sum / Float(frameLength)))
+        }
+
+        return 0
+    }
+
+    nonisolated private static func normalizedUnit(fromRMS rms: Float) -> Double {
+        let clampedRMS = max(rms, 0.000_01)
+        let decibels = 20 * log10(clampedRMS)
+        let normalized = (decibels + 52) / 52
+        return Double(min(max(normalized, 0), 1))
+    }
+}
+
+/// Bridges real-time audio thread → optional recognition request without reinstalling `installTap`
+/// (repeated remove/install caused Core Audio I/O glitches in other apps’ playback, e.g. Bluetooth).
+private final class InputAudioTapBridge: @unchecked Sendable {
+    private let lock = NSLock()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    /// Must be `@Sendable`: `installTap` runs on a realtime queue — never store a `@MainActor` closure here (Swift 6 traps).
+    private var onLevel: (@Sendable (Double) -> Void)?
+
+    func setPipe(request: SFSpeechAudioBufferRecognitionRequest?, onLevel: (@Sendable (Double) -> Void)?) {
+        lock.lock()
+        self.request = request
+        self.onLevel = onLevel
+        lock.unlock()
+    }
+
+    func process(buffer: AVAudioPCMBuffer) {
+        lock.lock()
+        let req = request
+        let handler = onLevel
+        lock.unlock()
+
+        if let req {
+            req.append(buffer)
+        }
+
+        if let handler {
+            let level = TapAudioMath.normalizedLevel(from: buffer)
+            handler(level)
+        }
+    }
+}
+
+/// `AVAudioNode.installTap` invokes this from a **realtime** queue. Closures created inside `@MainActor` methods inherit
+/// MainActor isolation and trap at runtime under Swift 6 (`_swift_task_checkIsolatedSwift`).
+private func voiceInsertInputTapBlock(bridge: InputAudioTapBridge) -> AVAudioNodeTapBlock {
+    { buffer, _ in
+        bridge.process(buffer: buffer)
+    }
 }
 
 @MainActor
 final class SpeechRecognitionService {
     private let audioEngine = AVAudioEngine()
+    private let tapBridge = InputAudioTapBridge()
+    /// Keeps a single `installTap` across sessions (avoids BT/IO glitches on reinstall) but **does not** leave
+    /// `AVAudioEngine` running while idle — that was grabbing the mic continuously and disturbed system playback.
     private let keepInputWarmBetweenSessions = true
     private var isTapInstalled = false
-    private var tapMode: InputTapMode = .none
     private var cachedRecognizer: SFSpeechRecognizer?
     private var cachedLocaleIdentifier: String?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -54,27 +127,20 @@ final class SpeechRecognitionService {
     private var firstObservedAudioSignalAt = Date.distantPast
     private var partialHandler: (@MainActor (String) -> Void)?
     private var sessionToken = UUID()
+    /// Defers `audioEngine.stop()` so a quick second dictation reuses a running engine — fewer I/O route toggles
+    /// (less “jumping” in other apps). Cancels whenever a new session starts.
+    private var deferredEngineStopGeneration: UInt64 = 0
+    private var deferredEngineStopTask: Task<Void, Never>?
 
     func prewarm(locale: Locale) {
         _ = recognizer(for: locale)
     }
 
-    /// Prepares the engine graph and touches the input node format without starting the mic — trims some first-session latency.
+    /// Cheap graph prep only — no input tap, no `start()`. Starting capture at launch kept the mic open and made
+    /// other apps’ audio (Bluetooth especially) stutter or “jump”.
     func prepareInputGraphIfIdle() {
         guard recognitionRequest == nil, recognitionTask == nil else { return }
-
-        let inputNode = audioEngine.inputNode
-        _ = inputNode.outputFormat(forBus: 0)
         audioEngine.prepare()
-
-        guard keepInputWarmBetweenSessions else { return }
-
-        do {
-            try ensureWarmInputRunning()
-            persistDebugSnapshot(state: "idle_warmup_ready")
-        } catch {
-            persistDebugSnapshot(state: "idle_warmup_failed", errorMessage: error.localizedDescription)
-        }
     }
 
     func startSession(
@@ -83,6 +149,8 @@ final class SpeechRecognitionService {
         partialHandler: @escaping @MainActor (String) -> Void,
         levelHandler: @escaping @MainActor (Double) -> Void
     ) throws {
+        cancelDeferredEngineStop()
+
         cancelSession()
 
         let recognizer = recognizer(for: locale)
@@ -116,23 +184,19 @@ final class SpeechRecognitionService {
         self.sessionToken = token
         persistDebugSnapshot(state: "session_started")
 
-        let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        replaceInputTap(
-            on: inputNode,
-            format: format,
-            mode: .recognition,
-            request: request,
-            levelHandler: { [weak self] level in
-                self?.recordObservedAudioLevel(level)
+        tapBridge.setPipe(request: request, onLevel: { @Sendable level in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.recordObservedAudioLevel(level)
                 levelHandler(level)
             }
-        )
+        })
 
         audioEngine.prepare()
         let wasWarm = audioEngine.isRunning
 
         do {
+            try ensureUnifiedInputTapAndEngineStarted()
             if !wasWarm {
                 try audioEngine.start()
                 audioCaptureStartedAt = Date()
@@ -147,8 +211,6 @@ final class SpeechRecognitionService {
             throw SpeechRecognitionError.audioEngineBusy
         }
 
-        // Let the mic start buffering into `request` immediately; starting the speech task after the
-        // engine removes a chunk of press-to-first-syllable latency and preserves those early buffers.
         recognitionTask = Self.makeRecognitionTask(
             recognizer: recognizer,
             request: request,
@@ -265,12 +327,49 @@ final class SpeechRecognitionService {
     }
 
     private func stopAudioCapture() {
+        tapBridge.setPipe(request: nil, onLevel: nil)
+
         if keepInputWarmBetweenSessions {
-            restoreWarmInputTapIfPossible()
+            do {
+                try ensureUnifiedInputTapAndEngineStarted()
+            } catch {
+                cancelDeferredEngineStop()
+                teardownInputCapture()
+                persistDebugSnapshot(state: "idle_warmup_restore_failed", errorMessage: error.localizedDescription)
+                return
+            }
+            scheduleDeferredEngineStopIfRunning()
+        } else {
+            cancelDeferredEngineStop()
+            teardownInputCapture()
+        }
+    }
+
+    private func cancelDeferredEngineStop() {
+        deferredEngineStopTask?.cancel()
+        deferredEngineStopTask = nil
+        deferredEngineStopGeneration &+= 1
+    }
+
+    private func scheduleDeferredEngineStopIfRunning() {
+        guard audioEngine.isRunning else {
+            persistDebugSnapshot(state: "capture_stopped_warm")
             return
         }
-
-        teardownInputCapture()
+        deferredEngineStopTask?.cancel()
+        let generation = deferredEngineStopGeneration
+        deferredEngineStopTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(320))
+            guard let self else { return }
+            guard !Task.isCancelled else { return }
+            guard self.deferredEngineStopGeneration == generation else { return }
+            guard self.recognitionRequest == nil, self.recognitionTask == nil else { return }
+            if self.audioEngine.isRunning {
+                self.audioEngine.stop()
+            }
+            self.persistDebugSnapshot(state: "capture_stopped_warm")
+        }
+        persistDebugSnapshot(state: "capture_stop_deferred")
     }
 
     private func cleanupResources(cancelTask: Bool) {
@@ -343,108 +442,38 @@ final class SpeechRecognitionService {
         }
     }
 
-    private func ensureWarmInputRunning() throws {
+    /// Single `installTap` for the process lifetime (when warm path is on) to avoid Core Audio I/O teardown
+    /// that audibly glitches system playback on many devices. Callers decide when to `start()` / `stop()` the engine.
+    private func ensureUnifiedInputTapAndEngineStarted() throws {
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { return }
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
-        replaceInputTap(on: inputNode, format: format, mode: .idleWarmup, request: nil, levelHandler: nil)
 
-        if !audioEngine.isRunning {
-            audioEngine.prepare()
-            try audioEngine.start()
-        }
-    }
-
-    private func restoreWarmInputTapIfPossible() {
-        guard keepInputWarmBetweenSessions,
-              AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
-            teardownInputCapture()
-            return
-        }
-
-        do {
-            try ensureWarmInputRunning()
-            persistDebugSnapshot(state: "idle_warmup_restored")
-        } catch {
-            teardownInputCapture()
-            persistDebugSnapshot(state: "idle_warmup_restore_failed", errorMessage: error.localizedDescription)
-        }
-    }
-
-    private func replaceInputTap(
-        on inputNode: AVAudioInputNode,
-        format: AVAudioFormat,
-        mode: InputTapMode,
-        request: SFSpeechAudioBufferRecognitionRequest?,
-        levelHandler: (@MainActor (Double) -> Void)?
-    ) {
-        if mode == .idleWarmup, tapMode == .idleWarmup, isTapInstalled {
-            return
-        }
-
-        if isTapInstalled {
-            inputNode.removeTap(onBus: 0)
-            isTapInstalled = false
-        }
-
-        switch mode {
-        case .none:
-            tapMode = .none
-        case .idleWarmup:
-            Self.installIdleInputTap(on: inputNode, format: format)
-            isTapInstalled = true
-            tapMode = .idleWarmup
-        case .recognition:
-            guard let request, let levelHandler else {
-                tapMode = .none
-                return
-            }
-
-            Self.installRecognitionInputTap(
-                on: inputNode,
+        if !isTapInstalled {
+            inputNode.installTap(
+                onBus: 0,
+                bufferSize: 512,
                 format: format,
-                request: request,
-                levelHandler: levelHandler
+                block: voiceInsertInputTapBlock(bridge: tapBridge)
             )
             isTapInstalled = true
-            tapMode = .recognition
         }
+
+        audioEngine.prepare()
     }
 
     private func teardownInputCapture() {
+        cancelDeferredEngineStop()
+        tapBridge.setPipe(request: nil, onLevel: nil)
+
         if audioEngine.isRunning {
-            audioEngine.pause()
+            audioEngine.stop()
         }
 
         if isTapInstalled {
             audioEngine.inputNode.removeTap(onBus: 0)
             isTapInstalled = false
-        }
-
-        tapMode = .none
-    }
-
-    nonisolated private static func installIdleInputTap(
-        on inputNode: AVAudioInputNode,
-        format: AVAudioFormat
-    ) {
-        inputNode.installTap(onBus: 0, bufferSize: 256, format: format) { _, _ in }
-    }
-
-    nonisolated private static func installRecognitionInputTap(
-        on inputNode: AVAudioInputNode,
-        format: AVAudioFormat,
-        request: SFSpeechAudioBufferRecognitionRequest,
-        levelHandler: @escaping @MainActor (Double) -> Void
-    ) {
-        inputNode.installTap(onBus: 0, bufferSize: 256, format: format) { buffer, _ in
-            request.append(buffer)
-
-            let level = normalizedAudioLevel(from: buffer)
-            Task { @MainActor in
-                levelHandler(level)
-            }
         }
     }
 
@@ -476,44 +505,6 @@ final class SpeechRecognitionService {
                 }
             }
         }
-    }
-
-    nonisolated private static func normalizedAudioLevel(from buffer: AVAudioPCMBuffer) -> Double {
-        let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return 0 }
-
-        if let channelData = buffer.floatChannelData {
-            let samples = channelData[0]
-            var sum: Float = 0
-
-            for index in 0..<frameLength {
-                let sample = samples[index]
-                sum += sample * sample
-            }
-
-            return normalizedLevel(fromRMS: sqrt(sum / Float(frameLength)))
-        }
-
-        if let channelData = buffer.int16ChannelData {
-            let samples = channelData[0]
-            var sum: Float = 0
-
-            for index in 0..<frameLength {
-                let sample = Float(samples[index]) / Float(Int16.max)
-                sum += sample * sample
-            }
-
-            return normalizedLevel(fromRMS: sqrt(sum / Float(frameLength)))
-        }
-
-        return 0
-    }
-
-    nonisolated private static func normalizedLevel(fromRMS rms: Float) -> Double {
-        let clampedRMS = max(rms, 0.000_01)
-        let decibels = 20 * log10(clampedRMS)
-        let normalized = (decibels + 52) / 52
-        return Double(min(max(normalized, 0), 1))
     }
 
     private func recognizer(for locale: Locale) -> SFSpeechRecognizer {

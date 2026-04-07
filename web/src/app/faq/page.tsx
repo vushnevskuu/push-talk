@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import { JsonLd } from "@/components/JsonLd";
 import { siteOrigin } from "@/lib/site";
 import { faqItems } from "./faq-data";
@@ -67,37 +68,41 @@ export default function FaqPage() {
   return (
     <>
       <JsonLd data={[faqJsonLd, breadcrumbJsonLd]} />
+      <SiteHeader />
       <div className="wrap faq-page">
-        <nav className="site-header-nav faq-back" aria-label="Primary">
-          <Link href="/">← Home</Link>
-        </nav>
         <header className="faq-header">
           <p className="eyebrow">Help & discovery</p>
           <h1>Frequently asked questions</h1>
           <p className="lede faq-intro">
-            Quick answers for people searching for <strong>Mac dictation</strong>, <strong>hold-to-talk</strong> apps,{" "}
-            <strong>Obsidian voice capture</strong>, and how VoiceInsert compares to built-in options. Updated for
-            VoiceInsert on macOS 13+.
+            Quick answers about <strong>Mac dictation</strong>, <strong>hold-to-talk</strong>,{" "}
+            <strong>Obsidian voice capture</strong>, and how VoiceInsert differs from built-in dictation. For macOS 13+.
+          </p>
+          <p className="faq-hint">
+            Expand each question below (click, tap, or Enter/Space on the summary). Full text stays in the page for search
+            and assistive tech.
           </p>
         </header>
 
-        <section aria-label="Questions and answers">
-          <ol className="faq-list">
-            {faqItems.map((item, index) => (
-              <li key={item.question} className="faq-item">
-                <h2 className="faq-question">
-                  <span className="faq-number">{index + 1}.</span> {item.question}
-                </h2>
+        <section aria-label="Questions and answers" className="faq-accordion-section">
+          {faqItems.map((item, index) => (
+            <details key={item.question} className="faq-details">
+              <summary className="faq-summary">
+                <span className="faq-summary-num" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="faq-summary-text">{item.question}</span>
+              </summary>
+              <div className="faq-panel">
                 <p className="faq-answer">{item.answer}</p>
-              </li>
-            ))}
-          </ol>
+              </div>
+            </details>
+          ))}
         </section>
 
         <section className="seo-section faq-cta">
           <h2 className="seo-section-title">Try VoiceInsert</h2>
           <p className="seo-section-lead">
-            Download from the <Link href="/">homepage</Link>, review{" "}
+            Download from the <Link href="/#download">homepage</Link>, review{" "}
             <Link href="/#requirements">system requirements</Link>, or open the{" "}
             <a href={`https://github.com/${process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk"}`}>
               GitHub repository

@@ -38,6 +38,7 @@ struct SettingsView: View {
         .animation(.spring(response: 0.22, dampingFraction: 0.92), value: model.dictationLanguage)
         .onAppear {
             model.refreshPermissionsFromUI()
+            model.prepareSubscriptionSettingsSection()
         }
     }
 
@@ -171,8 +172,81 @@ struct SettingsView: View {
 
     private var secondaryColumn: some View {
         VStack(alignment: .leading, spacing: 20) {
+            if EntitlementConfig.isEnforcementEnabled {
+                subscriptionCard
+            }
             behaviorCard
             feedbackCard
+        }
+    }
+
+    private var subscriptionCard: some View {
+        SettingsSurface {
+            VStack(alignment: .leading, spacing: 18) {
+                SectionHeader(
+                    icon: "creditcard.fill",
+                    iconTint: Color(red: 0.95, green: 0.55, blue: 0.2),
+                    title: "Subscription",
+                    subtitle: "Official builds require an active trial or paid plan. Pay the trial start on the website, then paste the one-time access token here. Status syncs with the billing server."
+                )
+
+                HStack(alignment: .center, spacing: 10) {
+                    if model.entitlementCheckInFlight {
+                        ProgressView()
+                            .scaleEffect(0.85)
+                    }
+                    StatusPill(
+                        title: model.subscriptionAccessAllowed ? "Active" : "Blocked",
+                        tint: model.subscriptionAccessAllowed ? .green : .orange
+                    )
+                    Spacer(minLength: 0)
+                    Button("Refresh status") {
+                        model.refreshSubscriptionStatusNow()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.entitlementCheckInFlight)
+                }
+
+                Text(model.subscriptionStatusLine)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if model.hasStoredSubscriptionToken {
+                    Text("An access token is saved in Keychain. Paste a new token below to replace it.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                SecureField("Paste access token from website", text: $model.subscriptionTokenDraft)
+                    .textFieldStyle(.roundedBorder)
+
+                HStack(spacing: 10) {
+                    Button("Save token") {
+                        model.saveSubscriptionTokenFromDraft()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.subscriptionTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Button("Open website") {
+                        model.openVoiceInsertBillingWebsite()
+                    }
+                    .buttonStyle(.bordered)
+
+                    if model.hasStoredSubscriptionToken {
+                        Button("Remove token") {
+                            model.clearSubscriptionToken()
+                        }
+                        .buttonStyle(.bordered)
+                        .foregroundStyle(.red)
+                    }
+                }
+
+                InlineNotice(
+                    icon: "lock.shield",
+                    text: "The token is stored only in your Mac Keychain and sent over HTTPS when checking subscription. Periods and trial end dates come from Airwallex via the website."
+                )
+            }
         }
     }
 

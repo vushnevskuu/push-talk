@@ -18,3 +18,29 @@ export function getSiteUrl(): URL {
 export function siteOrigin(): string {
   return getSiteUrl().origin;
 }
+
+/** Shown in footer; override with NEXT_PUBLIC_SITE_AUTHOR_NAME on Vercel. */
+const defaultAuthorName = "Alexander Vishnevsky";
+
+/** Full profile URL; override with NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN. */
+const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vishnevsky/";
+
+export function siteAuthorName(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_AUTHOR_NAME?.trim();
+  return fromEnv || defaultAuthorName;
+}
+
+export function siteAuthorLinkedInUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN?.trim();
+  if (fromEnv) {
+    try {
+      const u = new URL(fromEnv);
+      if (u.protocol === "https:" || u.protocol === "http:") {
+        return u.href;
+      }
+    } catch {
+      /* use default */
+    }
+  }
+  return defaultAuthorLinkedIn;
+}

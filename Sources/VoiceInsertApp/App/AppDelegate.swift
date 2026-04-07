@@ -12,5 +12,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// After granting permissions in System Settings, the shortcut monitor may stay Local Only until the app re-inits the event tap / hotkey.
     func applicationDidBecomeActive(_ notification: Notification) {
         AppRuntime.sharedModel.refreshPermissionsFromUI()
+        AppRuntime.sharedModel.refreshSubscriptionEntitlementFromHost()
     }
 }

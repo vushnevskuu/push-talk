@@ -49,3 +49,10 @@ jobs:
           test -f Build/VoiceInsert.app/Contents/Info.plist
           test -x Build/VoiceInsert.app/Contents/MacOS/VoiceInsert
           test -x Build/VoiceInsert.app/Contents/Helpers/VoiceInsertInjector
+
+      - name: Build VoiceInsert MCP package
+        run: |
+          set -euo pipefail
+          cd mcp/voiceinsert-mcp
+          npm ci
+          npm run build

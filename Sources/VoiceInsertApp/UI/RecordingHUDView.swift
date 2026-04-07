@@ -20,19 +20,29 @@ struct RecordingHUDView: View {
     }
 
     private var glassBarHUD: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
+        let corner = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
+        return ZStack {
             VoiceWaveVisualizer(levels: model.visualizerLevels(), style: style)
                 .frame(width: 184, height: 36)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 18)
+                .background {
+                    ZStack {
+                        corner.fill(.ultraThinMaterial)
+                        corner.stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    }
+                }
+                .compositingGroup()
+                .clipShape(corner)
+                // Rounded blur instead of `.shadow` — rectangular shadow bbox was visible on light backgrounds.
+                .background {
+                    corner
+                        .fill(Color.black.opacity(0.28))
+                        .blur(radius: 14)
+                        .offset(y: 9)
+                        .opacity(0.75)
+                }
         }
         .frame(width: style.panelSize.width, height: style.panelSize.height)
     }
@@ -44,12 +54,24 @@ struct RecordingHUDView: View {
             compactOrbWaveCluster(levels: model.visualizerLevels(barCount: 5))
         }
         .frame(width: style.panelSize.width, height: style.panelSize.height)
+        .compositingGroup()
+        .clipShape(GlassDropletShape())
     }
 
     private var bareWavesHUD: some View {
-        VoiceWaveVisualizer(levels: model.visualizerLevels(), style: style)
+        let cap = Capsule(style: .continuous)
+
+        return VoiceWaveVisualizer(levels: model.visualizerLevels(), style: style)
             .frame(width: style.panelSize.width, height: style.panelSize.height)
-            .shadow(color: Color.black.opacity(0.10), radius: 10, y: 4)
+            .compositingGroup()
+            .clipShape(cap)
+            .background {
+                cap
+                    .fill(Color.black.opacity(0.2))
+                    .blur(radius: 10)
+                    .offset(y: 4)
+                    .opacity(0.7)
+            }
     }
 }
 

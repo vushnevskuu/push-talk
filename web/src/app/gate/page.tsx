@@ -35,57 +35,50 @@ export default function GatePage() {
   }
 
   return (
-    <div className="wrap">
-      <header style={{ paddingBlock: "3rem 2rem" }}>
+    <div className="wrap page-simple">
+      <header className="page-simple-header">
         <p className="eyebrow">Internal</p>
         <h1>Access</h1>
-        <p className="lede">Не индексируется с главной. Токен вставьте в VoiceInsert → Settings → Subscription.</p>
+        <p className="lede page-simple-lede">
+          Not linked from the public site. Copy the token into VoiceInsert → Settings → Subscription.
+        </p>
 
         <div className="card">
           <label htmlFor="lg">Login</label>
           <input
             id="lg"
+            className="input-field input-stack"
             type="text"
             name="login"
             autoComplete="username"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
-            style={{ maxWidth: "100%", marginBottom: "1rem" }}
           />
           <label htmlFor="pw">Password</label>
           <input
             id="pw"
+            className="input-field"
             type="password"
             name="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ maxWidth: "100%" }}
           />
           {error ? <p className="err">{error}</p> : null}
-          <div style={{ marginTop: "1rem" }}>
-            <button type="button" className="btn-primary" disabled={loading} onClick={() => void submit()}>
-              {loading ? "…" : "Issue token"}
+          <div className="trial-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={loading}
+              aria-busy={loading}
+              aria-label={loading ? "Issuing token" : "Issue access token"}
+              onClick={() => void submit()}
+            >
+              {loading ? "Working…" : "Issue token"}
             </button>
           </div>
-          {token ? (
-            <pre
-              style={{
-                marginTop: "1.25rem",
-                padding: "1rem",
-                background: "rgba(0,0,0,0.35)",
-                borderRadius: 8,
-                fontSize: "0.85rem",
-                wordBreak: "break-all",
-              }}
-            >
-              {token}
-            </pre>
-          ) : null}
+          {token ? <pre className="token-block token-block-spaced">{token}</pre> : null}
         </div>
-        <p style={{ marginTop: "2rem" }}>
-          <a href="/">Home</a>
-        </p>
       </header>
     </div>
   );

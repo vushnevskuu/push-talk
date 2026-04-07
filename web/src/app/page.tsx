@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import { siteOrigin } from "@/lib/site";
 import HomeClient from "./HomeClient";
 
@@ -73,6 +74,7 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={[softwareJsonLd, websiteJsonLd]} />
+      <SiteHeader />
       <HomeClient />
       <SiteFooter />
     </>

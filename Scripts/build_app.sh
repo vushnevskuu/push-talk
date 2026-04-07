@@ -50,6 +50,13 @@ cp "$HELPER_PATH" "$APP_DIR/Contents/Helpers/$HELPER_NAME"
 chmod +x "$APP_DIR/Contents/Helpers/$HELPER_NAME"
 cp "$MAIN_PLIST" "$APP_DIR/Contents/Info.plist"
 
+# Optional: embed billing site origin for subscription checks (empty plist = enforcement off).
+if [[ -n "${VOICEINSERT_ENTITLEMENT_BASE_URL:-}" ]]; then
+  ENT_URL="${VOICEINSERT_ENTITLEMENT_BASE_URL%/}"
+  /usr/libexec/PlistBuddy -c "Set :VoiceInsertEntitlementBaseURL \"$ENT_URL\"" "$APP_DIR/Contents/Info.plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :VoiceInsertEntitlementBaseURL string \"$ENT_URL\"" "$APP_DIR/Contents/Info.plist"
+fi
+
 if command -v codesign >/dev/null 2>&1; then
   use_local_identity=0
   case "${VOICEINSERT_USE_LOCAL_IDENTITY:-auto}" in
