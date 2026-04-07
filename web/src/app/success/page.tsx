@@ -3,6 +3,10 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+const publicRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+const githubBase = `https://github.com/${publicRepo}`;
+const macZipUrl = `${githubBase}/releases/latest/download/VoiceInsert-macos.zip`;
+
 function SuccessInner() {
   const sp = useSearchParams();
   const [checkoutId, setCheckoutId] = useState("");
@@ -73,8 +77,23 @@ function SuccessInner() {
           generate your token once and paste it in the app.
         </p>
 
+        <div className="card success-download" aria-label="Download Mac app">
+          <h2 className="claim-card-title">1. Download VoiceInsert for Mac</h2>
+          <p className="path-card-desc">
+            Official build (ZIP) from the public GitHub Releases page — same link as on the homepage.
+          </p>
+          <div className="cta-row path-card-cta">
+            <a className="btn-primary" href={macZipUrl} rel="noopener noreferrer">
+              Download for Mac (ZIP)
+            </a>
+            <a className="btn-secondary" href={`${githubBase}/releases`} rel="noopener noreferrer">
+              All releases
+            </a>
+          </div>
+        </div>
+
         <ol className="success-steps" aria-label="Steps after checkout">
-          <li>Paste or confirm the billing checkout id below.</li>
+          <li>Install the app, then paste or confirm the billing checkout id below.</li>
           <li>Click <strong>Generate access token</strong>.</li>
           <li>Open VoiceInsert → Settings → Subscription and paste the token.</li>
         </ol>

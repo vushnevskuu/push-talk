@@ -575,6 +575,10 @@ footer {
   margin: 0 0 0.75rem;
 }
 
+.success-download {
+  margin-bottom: 1.5rem;
+}
+
 .success-steps {
   margin: 0 0 1.5rem;
   padding-left: 1.25rem;

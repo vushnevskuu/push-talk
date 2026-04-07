@@ -104,10 +104,10 @@ export default function FaqPage() {
           <p className="seo-section-lead">
             Download from the <Link href="/#download">homepage</Link>, review{" "}
             <Link href="/#requirements">system requirements</Link>, or open the{" "}
-            <a href={`https://github.com/${process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk"}`}>
-              GitHub repository
+            <a href={`https://github.com/${process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public"}`}>
+              public GitHub repository
             </a>{" "}
-            for releases and source code.
+            for Mac builds and release notes (application source is not published there).
           </p>
         </section>
       </div>

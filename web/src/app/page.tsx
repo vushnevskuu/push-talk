@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   const origin = siteOrigin();
-  const repo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
+  const repo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
   const github = `https://github.com/${repo}`;
 
   const softwareJsonLd = {
@@ -52,7 +52,6 @@ export default function HomePage() {
     description,
     url: origin,
     downloadUrl: `${github}/releases/latest/download/VoiceInsert-macos.zip`,
-    license: `${github}/blob/main/LICENSE`,
     isAccessibleForFree: true,
     publisher: {
       "@type": "Organization",

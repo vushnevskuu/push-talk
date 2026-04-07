@@ -1,6 +1,6 @@
 import { siteAuthorLinkedInUrl, siteAuthorName } from "@/lib/site";
 
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
 export function SiteFooter() {
   const githubBase = `https://github.com/${defaultRepo}`;

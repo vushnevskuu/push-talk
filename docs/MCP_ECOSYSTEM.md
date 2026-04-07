@@ -41,7 +41,7 @@ npm start   # stdio — для ручного теста почти беспол
 **Переменные окружения:**
 
 - `VOICEINSERT_SITE_URL` — базовый URL сайта (по умолчанию `https://push-talk.vercel.app`).
-- `VOICEINSERT_GITHUB_REPO` — `owner/repo` для ссылок на релизы.
+- `VOICEINSERT_GITHUB_REPO` — `owner/repo` для ссылок на релизы (по умолчанию публичный `vushnevskuu/push-talk-public`).
 
 **Синхронизация FAQ с сайтом** (после правок `web/src/app/faq/faq-data.ts`):
 

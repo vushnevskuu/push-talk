@@ -1,4 +1,4 @@
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
 export function SiteHeader() {
   const githubBase = `https://github.com/${defaultRepo}`;

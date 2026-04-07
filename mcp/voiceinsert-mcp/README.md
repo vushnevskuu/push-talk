@@ -29,7 +29,7 @@ Run is normally **via MCP client config** (see `docs/MCP_ECOSYSTEM.md` in the re
 ## Env
 
 - `VOICEINSERT_SITE_URL` (default `https://push-talk.vercel.app`)
-- `VOICEINSERT_GITHUB_REPO` (default `vushnevskuu/push-talk`)
+- `VOICEINSERT_GITHUB_REPO` (default `vushnevskuu/push-talk-public` — public releases ZIP)
 
 ## Sync FAQ from Next.js site
 

@@ -23,7 +23,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Which macOS version does VoiceInsert support?",
     answer:
-      "VoiceInsert targets macOS 13 (Ventura) and later. It runs on Apple Silicon and Intel. Download the release ZIP from GitHub Releases or the project site; if Gatekeeper blocks the app, use Control-click → Open once.",
+      "VoiceInsert targets macOS 13 (Ventura) and later. It runs on Apple Silicon and Intel. Download the release ZIP from the public GitHub Releases page (this site links there) or the homepage; if Gatekeeper blocks the app, use Control-click → Open once.",
   },
   {
     question: "Can I dictate into Cursor, VS Code, or other IDEs?",
@@ -83,12 +83,12 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Where can I download VoiceInsert?",
     answer:
-      "Use the Download for Mac link on this site (GitHub Releases ZIP). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
+      "Use the Download for Mac link on this site — it points at the public GitHub Releases ZIP (source code is not in that repo). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
   },
   {
-    question: "Is VoiceInsert safe? Is the code open source?",
+    question: "Is VoiceInsert safe? Is the source code public?",
     answer:
-      "Treat it like any menu-bar utility that uses Accessibility: only install builds from sources you trust. The distributed app verifies subscription over HTTPS and stores your access token in the macOS Keychain. Whether source code is published is up to the maintainer; closed-source builds are common for paid Mac tools even though the binary can still be inspected by experts.",
+      "Treat it like any menu-bar utility that uses Accessibility: only install builds from sources you trust (this site and the linked public GitHub Releases). The app verifies subscription over HTTPS and stores your access token in the macOS Keychain. The main application source is not open; the public GitHub repo hosts downloads and announcements only.",
   },
   {
     question: "Why does Gatekeeper block VoiceInsert?",

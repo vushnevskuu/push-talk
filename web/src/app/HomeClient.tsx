@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
 export default function HomeClient() {
   const [email, setEmail] = useState("");
@@ -69,8 +69,8 @@ export default function HomeClient() {
           <div id="download" className="path-card path-card-free" tabIndex={-1}>
             <h3 className="path-card-title">Download for Mac</h3>
             <p className="path-card-desc">
-              Latest release ZIP from GitHub. After install, add your token from the billing site so the app can verify
-              your trial or subscription.
+              Latest release ZIP from the <strong>public</strong> GitHub repo (no source code there). After install, add
+              your token from this billing site so the app can verify your trial or subscription.
             </p>
             <div className="cta-row path-card-cta">
               <a className="btn-primary" href={zipUrl}>

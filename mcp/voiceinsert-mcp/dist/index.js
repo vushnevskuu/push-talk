@@ -20,7 +20,7 @@ function siteUrl() {
     return (process.env.VOICEINSERT_SITE_URL ?? "https://push-talk.vercel.app").replace(/\/$/, "");
 }
 function githubRepo() {
-    return process.env.VOICEINSERT_GITHUB_REPO ?? "vushnevskuu/push-talk";
+    return process.env.VOICEINSERT_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 }
 function tokenize(s) {
     return s
