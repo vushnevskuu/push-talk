@@ -932,6 +932,8 @@ private struct RecordingHUDStylePreview: View {
                 compactOrb
             case .bareWaves:
                 bareWaves
+            case .flameBar:
+                flameBar
             }
         }
     }
@@ -963,6 +965,28 @@ private struct RecordingHUDStylePreview: View {
     private var bareWaves: some View {
         VoiceWaveVisualizer(levels: levels, style: .bareWaves)
             .frame(width: compact ? 84 : 150, height: compact ? 20 : 30)
+    }
+
+    private var flameBar: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.orange.opacity(0.38), Color.white.opacity(0.2)],
+                                startPoint: .bottomLeading,
+                                endPoint: .topTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+
+            FlameWaveVisualizer(levels: levels, compact: compact)
+                .frame(width: compact ? 72 : 136, height: compact ? 22 : 32)
+        }
+        .frame(width: compact ? 102 : 184, height: compact ? 44 : 62)
     }
 
     private var compactOrbPreviewWaves: some View {

@@ -5,6 +5,7 @@ enum RecordingHUDStyle: String, CaseIterable {
     case glassBar
     case compactOrb
     case bareWaves
+    case flameBar
 
     var title: String {
         switch self {
@@ -14,6 +15,8 @@ enum RecordingHUDStyle: String, CaseIterable {
             return "Round"
         case .bareWaves:
             return "Bare"
+        case .flameBar:
+            return "Flame"
         }
     }
 
@@ -25,6 +28,8 @@ enum RecordingHUDStyle: String, CaseIterable {
             return "A small frosted glass orb."
         case .bareWaves:
             return "Only the waveform, no plate."
+        case .flameBar:
+            return "Glass bar with live fire tongues instead of orange bars."
         }
     }
 
@@ -36,6 +41,8 @@ enum RecordingHUDStyle: String, CaseIterable {
             return NSSize(width: 72, height: 72)
         case .bareWaves:
             return NSSize(width: 204, height: 42)
+        case .flameBar:
+            return NSSize(width: 248, height: 76)
         }
     }
 }

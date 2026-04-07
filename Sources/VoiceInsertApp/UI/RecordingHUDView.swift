@@ -13,6 +13,8 @@ struct RecordingHUDView: View {
                 compactOrbHUD
             case .bareWaves:
                 bareWavesHUD
+            case .flameBar:
+                flameBarHUD
             }
         }
         .animation(.linear(duration: 0.05), value: model.audioLevel)
@@ -73,6 +75,44 @@ struct RecordingHUDView: View {
                     .opacity(0.7)
             }
     }
+
+    /// Same chrome as the glass bar; waveform replaced with flickering flame columns.
+    private var flameBarHUD: some View {
+        let corner = RoundedRectangle(cornerRadius: 22, style: .continuous)
+
+        return ZStack {
+            FlameWaveVisualizer(levels: model.visualizerLevels(), compact: false)
+                .frame(width: 184, height: 42)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 15)
+                .background {
+                    ZStack {
+                        corner.fill(.ultraThinMaterial)
+                        corner.stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.orange.opacity(0.35),
+                                    Color.white.opacity(0.14)
+                                ],
+                                startPoint: .bottomLeading,
+                                endPoint: .topTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                    }
+                }
+                .compositingGroup()
+                .clipShape(corner)
+                .background {
+                    corner
+                        .fill(Color.black.opacity(0.32))
+                        .blur(radius: 14)
+                        .offset(y: 9)
+                        .opacity(0.78)
+                }
+        }
+        .frame(width: style.panelSize.width, height: style.panelSize.height)
+    }
 }
 
 struct VoiceWaveVisualizer: View {
@@ -104,6 +144,8 @@ struct VoiceWaveVisualizer: View {
             return 7 + (CGFloat(level) * 15)
         case .bareWaves:
             return 8 + (CGFloat(level) * 22)
+        case .flameBar:
+            return 9 + (CGFloat(level) * 26)
         }
     }
 
@@ -114,6 +156,8 @@ struct VoiceWaveVisualizer: View {
         case .compactOrb:
             return 3.1
         case .bareWaves:
+            return 5
+        case .flameBar:
             return 5
         }
     }
@@ -126,6 +170,8 @@ struct VoiceWaveVisualizer: View {
             return 2.3
         case .bareWaves:
             return 6
+        case .flameBar:
+            return 5
         }
     }
 
