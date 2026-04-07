@@ -18,7 +18,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Does VoiceInsert send my voice to the cloud?",
     answer:
-      "Dictation uses Apple’s Speech recognition on your Mac; audio is not sent to a custom third-party speech API for transcription. You still grant Microphone and Speech Recognition permissions to VoiceInsert like any dictation tool. Network use may apply for subscription or license checks if you enable billing features.",
+      "Dictation uses Apple’s Speech recognition on your Mac; audio is not sent to a custom third-party speech API for transcription. You still grant Microphone and Speech Recognition permissions to VoiceInsert like any dictation tool. Official builds from this site do not require an online license check unless a maintainer ships a custom build with billing enabled.",
   },
   {
     question: "Which macOS version does VoiceInsert support?",
@@ -53,7 +53,7 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Is VoiceInsert free or paid?",
     answer:
-      "Distribution from this site uses a paid flow: a small charge (e.g. $1) can start a time-limited trial, then a monthly subscription while you want access. The Mac app phones home to confirm your trial or billing period before enabling dictation. Pricing on the download page is authoritative.",
+      "The Mac app distributed from this site is free: download the ZIP, install, and use dictation with no account or token. If the maintainer adds an optional “buy me a coffee” or similar link on the site, that is voluntary support only—not required to run the app.",
   },
   {
     question: "What languages does VoiceInsert support for dictation?",
@@ -83,12 +83,12 @@ export const faqItems: { question: string; answer: string }[] = [
   {
     question: "Where can I download VoiceInsert?",
     answer:
-      "Use the Download for Mac link on this site — the ZIP is hosted on the same domain as checkout (not the private source repo). After installing, complete checkout if you do not yet have a plan, copy your access token from the success page, and paste it under VoiceInsert → Settings → Subscription.",
+      "Use the Download for Mac link on this site — the ZIP is hosted on the same origin as the homepage. A copy may also appear on the public GitHub Releases page. Unzip, move VoiceInsert.app to Applications, and launch once (Gatekeeper: Control-click → Open if needed).",
   },
   {
     question: "Is VoiceInsert safe? Is the source code public?",
     answer:
-      "Treat it like any menu-bar utility that uses Accessibility: only install builds from sources you trust (this site and the linked public GitHub Releases). The app verifies subscription over HTTPS and stores your access token in the macOS Keychain. The main application source is not open; the public GitHub repo hosts downloads and announcements only.",
+      "Treat it like any menu-bar utility that uses Accessibility: only install builds from sources you trust (this site and the linked public GitHub Releases). The public GitHub repo hosts releases and announcements; whether full application source is published is up to the maintainer.",
   },
   {
     question: "Why does Gatekeeper block VoiceInsert?",
@@ -96,8 +96,8 @@ export const faqItems: { question: string; answer: string }[] = [
       "Unsigned or ad hoc signed builds are common for indie Mac tools. macOS may show an unidentified developer warning. Use Control-click → Open the first time, or allow the app under Privacy & Security, or build and sign locally with your own Apple Developer workflow.",
   },
   {
-    question: "How do I cancel or manage a VoiceInsert subscription?",
+    question: "How can I support VoiceInsert?",
     answer:
-      "If you subscribed through this site’s billing provider (e.g. Airwallex), use the customer portal or links from your payment receipts to cancel or update the card. When the subscription ends, the app will stop passing the online check and dictation will be disabled until you renew.",
+      "The app is free. If the site shows a Support or donation link (e.g. Buy Me a Coffee, Ko-fi), you can use it to tip the maintainer; it does not unlock extra features in the distributed build.",
   },
 ];

@@ -2,7 +2,12 @@ import { macAppZipPath } from "@/lib/site";
 
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  /** Landing: no Download (single CTA on page); no redundant Home link. */
+  landingMode?: boolean;
+};
+
+export function SiteHeader({ landingMode = false }: SiteHeaderProps) {
   const githubBase = `https://github.com/${defaultRepo}`;
 
   return (
@@ -12,15 +17,19 @@ export function SiteHeader() {
           VoiceInsert
         </a>
         <nav className="site-header-nav-main" aria-label="Main">
-          <a className="nav-link" href="/">
-            Home
-          </a>
+          {!landingMode ? (
+            <a className="nav-link" href="/">
+              Home
+            </a>
+          ) : null}
           <a className="nav-link" href="/faq">
             FAQ
           </a>
-          <a className="nav-link nav-link-cta" href={macAppZipPath}>
-            Download
-          </a>
+          {!landingMode ? (
+            <a className="nav-link nav-link-cta" href={macAppZipPath}>
+              Download
+            </a>
+          ) : null}
           <a className="nav-link nav-link-muted" href={githubBase} rel="noopener noreferrer">
             GitHub
           </a>

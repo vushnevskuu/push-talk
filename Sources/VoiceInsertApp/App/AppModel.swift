@@ -113,7 +113,6 @@ final class AppModel: ObservableObject {
             await refreshPermissions()
             await requestEssentialPermissionsIfNeeded()
             prewarmSpeechPipeline()
-            await refreshSubscriptionEntitlement(force: true)
         }
 
         autotestTriggerTask = Task { @MainActor [weak self] in
@@ -469,7 +468,7 @@ final class AppModel: ObservableObject {
         entitlementLastKnownGood = false
         lastSuccessfulEntitlementCheck = nil
         subscriptionAccessAllowed = false
-        subscriptionStatusLine = "Token removed. Add a token from the website after subscribing."
+        subscriptionStatusLine = "Token removed."
         Task {
             await refreshSubscriptionEntitlement(force: true)
         }

@@ -32,7 +32,6 @@ jobs:
       - name: Build and package .app
         env:
           CI: "true"
-          VOICEINSERT_ENTITLEMENT_BASE_URL: "https://push-talk.vercel.app"
         run: |
           set -euo pipefail
           chmod +x Scripts/build_app.sh Scripts/ensure_local_codesigning_identity.sh

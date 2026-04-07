@@ -1,4 +1,6 @@
-# VoiceInsert billing site (Next.js + Airwallex)
+# VoiceInsert site (Next.js)
+
+Публичный лендинг, FAQ и раздача **`VoiceInsert-macos.zip`**. Опциональная ссылка на донат: **`NEXT_PUBLIC_DONATION_URL`**. Код Airwallex / entitlement в репозитории остаётся для возможного будущего использования, но основной сценарий — бесплатная сборка без токена.
 
 ## Если на Vercel «404: NOT_FOUND»
 
@@ -21,11 +23,11 @@ Deploy this folder to **Vercel** with **Root Directory** = `web`.
 The homepage and `/success` link to **`/VoiceInsert-macos.zip`** (static file). After each app release, rebuild from the repo root and overwrite the file:
 
 ```bash
-CI=1 VOICEINSERT_ENTITLEMENT_BASE_URL="https://YOUR_SITE" ./Scripts/build_app.sh
+CI=1 ./Scripts/build_app.sh
 ditto -c -k --keepParent Build/VoiceInsert.app web/public/VoiceInsert-macos.zip
 ```
 
-Then commit the new ZIP and deploy. The URL must match **`VoiceInsertEntitlementBaseURL`** embedded in that build.
+Then commit the new ZIP and deploy. For a **licensed** build only, set `VOICEINSERT_ENTITLEMENT_BASE_URL` when running `build_app.sh` so the plist matches your billing site.
 
 ## SEO & analytics
 
@@ -37,19 +39,9 @@ Then commit the new ZIP and deploy. The URL must match **`VoiceInsertEntitlement
 
 ## Setup
 
-1. Create a **PostgreSQL** database and set `DATABASE_URL` in Vercel → Settings → Environment Variables.
-2. Run migrations once (locally with the same `DATABASE_URL`, or via Vercel build + `prisma migrate deploy` in a one-off command):
-
-   ```bash
-   cd web
-   npm install
-   npx prisma migrate deploy
-   ```
-
-3. In **Airwallex** (sandbox first): Billing → create a **Product** and **Price** for **$10/month** recurring. Optionally create a **one-time $1** price for the paid trial start; if `billing_checkouts/create` rejects two line items, leave `AIRWALLEX_TRIAL_SETUP_PRICE_ID` empty and keep only the recurring price with a 7-day trial in `subscription_data` (already set in code).
-4. Copy **Client ID**, **API key**, **Legal entity ID**, **Linked payment account ID**, and **Price IDs** into Vercel env vars (see `.env.example`).
-5. Set **NEXT_PUBLIC_APP_URL** to your production URL (e.g. `https://voiceinsert.vercel.app`).
-6. Configure an Airwallex **webhook** to `https://YOUR_DOMAIN/api/webhooks/airwallex` and set `AIRWALLEX_WEBHOOK_SECRET`. Adjust signature verification in `src/lib/webhook-verify.ts` if your dashboard uses a different header format.
+1. Set **NEXT_PUBLIC_APP_URL** in Vercel to your production URL (e.g. `https://push-talk.vercel.app`).
+2. Optional: **NEXT_PUBLIC_DONATION_URL** — Buy Me a Coffee, Ko-fi, Patreon, etc. (adds **Support** in the footer and on `/success`).
+3. **PostgreSQL + `DATABASE_URL` + `npx prisma migrate deploy`** — только если вы снова используете claim/entitlement и вебхуки Airwallex. Для статического лендинга и раздачи ZIP без этих API шаг можно пропустить (сборка Next.js может всё ещё требовать Prisma-схему в репо — смотрите ваш `npm run build` на Vercel).
 
 ## Hidden crew access
 
@@ -63,10 +55,10 @@ Set **VoiceInsertEntitlementBaseURL** in `Resources/Info.plist` to the same orig
 VOICEINSERT_ENTITLEMENT_BASE_URL=https://your-domain.vercel.app ./Scripts/build_app.sh
 ```
 
-Leave the plist value **empty** to **disable** subscription checks (local development).  
+Leave the plist value **empty** to **disable** online license checks (default for the public ZIP).  
 CI smoke tests and local runs can also use **`VOICEINSERT_SKIP_ENTITLEMENT=1`** to bypass enforcement.
 
-GitHub **Release** workflow (tags `v*`) sets `VOICEINSERT_ENTITLEMENT_BASE_URL` so published ZIPs require a valid token and active subscription/trial.
+GitHub **Release** workflow (tags `v*`) собирает ZIP **без** вшитого entitlement URL — публичная раздача остаётся бесплатной.
 
 ## Legacy static page
 

@@ -19,15 +19,41 @@ export function siteOrigin(): string {
   return getSiteUrl().origin;
 }
 
-/** Mac app bundle ZIP served from `web/public` (same origin as the billing site). */
+/** Mac app bundle ZIP served from `web/public`. */
 export const macAppZipPath = "/VoiceInsert-macos.zip";
+
+/**
+ * Tip link: Vercel env first, then optional hardcoded fallback (one place if you skip env).
+ * Set `NEXT_PUBLIC_DONATION_URL` in production, or paste your Buy Me a Coffee / Ko-fi URL below.
+ */
+const DONATION_URL_SITE_FALLBACK = "";
+
+function parseHttpUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (u.protocol === "https:" || u.protocol === "http:") {
+      return u.href;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function donationPageUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_DONATION_URL?.trim() || DONATION_URL_SITE_FALLBACK.trim();
+  if (!raw) {
+    return null;
+  }
+  return parseHttpUrl(raw);
+}
 
 export function macAppZipAbsoluteUrl(): string {
   return `${siteOrigin()}${macAppZipPath}`;
 }
 
 /** Shown in footer; override with NEXT_PUBLIC_SITE_AUTHOR_NAME on Vercel. */
-const defaultAuthorName = "Alexander Vishnevsky";
+const defaultAuthorName = "Aleksey Vishnevsky";
 
 /** Full profile URL; override with NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN. */
 const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vushnevskuu/";

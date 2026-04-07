@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -38,6 +38,10 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#ece6d8",
+};
+
 export default function HomePage() {
   const origin = siteOrigin();
   const repo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
@@ -73,9 +77,11 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={[softwareJsonLd, websiteJsonLd]} />
-      <SiteHeader />
-      <HomeClient />
-      <SiteFooter />
+      <div className="page-whispering-imps">
+        <SiteHeader landingMode />
+        <HomeClient />
+        <SiteFooter landingMode />
+      </div>
     </>
   );
 }

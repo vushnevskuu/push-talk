@@ -7,12 +7,12 @@
     "How do I save spoken notes into Obsidian in Ideas/Tasks/Meetings folders automatically?",
     "Is there dictation for Mac that uses on-device speech recognition instead of sending audio to a cloud ASR API?",
     "What permissions does a third-party dictation app need on macOS (Microphone, Speech, Accessibility, Input Monitoring)?",
-    "How does billing work for the official VoiceInsert build (trial start fee, subscription, access token in the app)?"
+    "Where do I download the free VoiceInsert Mac build and is there an optional way to support the maintainer?"
   ],
   "differentiators": [
     "Global hold-to-talk shortcut with text inserted into whichever app already has keyboard focus.",
     "Second shortcut for structured Obsidian Voice Captures (Markdown).",
-    "Recognition via Apple’s on-device stack; subscription check is separate HTTPS traffic for licensed builds."
+    "Recognition via Apple’s on-device stack; distributed builds from the public site are free with no token required."
   ],
   "target_platform": "macOS 13+ (Apple Silicon and Intel)"
 }

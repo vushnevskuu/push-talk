@@ -1,41 +1,59 @@
-import { macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName } from "@/lib/site";
+import { donationPageUrl, macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName } from "@/lib/site";
 
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
-export function SiteFooter() {
+type SiteFooterProps = {
+  /** Landing: hide Home, FAQ, Download (single FAQ in header; one Download on page). */
+  landingMode?: boolean;
+};
+
+export function SiteFooter({ landingMode = false }: SiteFooterProps) {
   const githubBase = `https://github.com/${defaultRepo}`;
-  const authorName = siteAuthorName();
-  const authorLinkedIn = siteAuthorLinkedInUrl();
+  const name = siteAuthorName();
+  const linkedIn = siteAuthorLinkedInUrl();
+  const donate = donationPageUrl();
+
   return (
     <footer className="site-footer wrap">
       <nav className="site-footer-nav" aria-label="Site">
-        <a href="/">Home</a>
-        <a href="/faq">FAQ</a>
-        <a href={macAppZipPath}>Download Mac</a>
-        <a href={githubBase}>GitHub</a>
-      </nav>
-      <p className="site-footer-author">
-        Made by{" "}
-        <a
-          href={authorLinkedIn}
-          rel="noopener noreferrer"
-          target="_blank"
-          aria-label={`${authorName} on LinkedIn`}
-        >
-          {authorName}
+        {!landingMode ? (
+          <>
+            <a href="/">Home</a>
+            <a href="/faq">FAQ</a>
+            <a href={macAppZipPath}>Download</a>
+          </>
+        ) : null}
+        <a href={githubBase} rel="noopener noreferrer">
+          GitHub
         </a>
-      </p>
-      <p className="site-footer-contact">
-        For any questions, reach out on{" "}
-        <a href={authorLinkedIn} rel="noopener noreferrer" target="_blank">
+        <a href={`${githubBase}/releases`} rel="noopener noreferrer">
+          Releases
+        </a>
+        {donate ? (
+          <a href={donate} rel="noopener noreferrer">
+            Buy me a coffee
+          </a>
+        ) : null}
+      </nav>
+      <p className="site-footer-compact">
+        <a href={linkedIn} rel="noopener noreferrer" target="_blank" aria-label={`${name} on LinkedIn`}>
+          {name}
+        </a>
+        <span className="site-footer-sep" aria-hidden="true">
+          ·
+        </span>
+        <a href={linkedIn} rel="noopener noreferrer" target="_blank">
           LinkedIn
         </a>
-        — <strong>English only</strong>, please.
-      </p>
-      <p className="site-footer-meta">
-        <a href={`${githubBase}/releases`}>GitHub releases</a>
-        {" · "}
-        Official Mac builds use subscription billing · Not affiliated with Apple Inc.
+        <span className="site-footer-note"> (English only)</span>
+        <span className="site-footer-sep" aria-hidden="true">
+          ·
+        </span>
+        <span>Free app</span>
+        <span className="site-footer-sep" aria-hidden="true">
+          ·
+        </span>
+        <span>Not Apple</span>
       </p>
     </footer>
   );
