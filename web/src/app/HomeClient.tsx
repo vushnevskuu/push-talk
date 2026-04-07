@@ -37,10 +37,9 @@ export default function HomeClient() {
   return (
     <div className="wrap landing-onpage landing-whisper imp-parchment-wrap">
       <header className="landing-hero hero-home landing-reveal imp-hero-card" aria-labelledby="landing-title">
-        <div className="imp-hero-motif-watermark" aria-hidden />
         <p className="eyebrow">macOS · Menu bar · On-device speech</p>
         <p className="imp-era-tag">
-          Styling after the <cite>Whispering Imps</cite> playing-card art — pencil devils, cream stock, crimson ink.
+          Styling after the <cite>Whispering Imps</cite> playing-card art — pencil devils, rose stock, and the suite reds of a vintage USPC deck.
         </p>
         <div className="imp-hero-cluster">
           <ImpHeroFlank />

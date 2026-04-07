@@ -2,8 +2,8 @@ import { macAppZipPath } from "@/lib/site";
 
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
-/** Вертикальный wisp из Desktop/мусор/vert wisp.svg → public/whisper-vert-wisp.svg */
-const LOGO_IMPS_SRC = "/whisper-vert-wisp.svg";
+/** Карточный логотип Desktop/мусор/logo.svg → public/whisper-card-logo.svg */
+const LOGO_CARD_SRC = "/whisper-card-logo.svg";
 
 type SiteHeaderProps = {
   /** Landing: no Download (single CTA on page); no redundant Home link. */
@@ -23,11 +23,11 @@ export function SiteHeader({ landingMode = false }: SiteHeaderProps) {
           {landingMode ? (
             <>
               <img
-                className="site-logo-imp-graphic site-logo-imp-graphic--svg"
-                src={LOGO_IMPS_SRC}
+                className="site-logo-imp-graphic site-logo-imp-card"
+                src={LOGO_CARD_SRC}
                 alt=""
-                width={121}
-                height={848}
+                width={247}
+                height={238}
                 decoding="async"
               />
               <span className="site-logo-wordmark">VoiceInsert</span>

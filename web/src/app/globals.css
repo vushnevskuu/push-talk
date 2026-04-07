@@ -865,39 +865,37 @@ footer {
   margin-top: 1rem;
 }
 
-/* —— Whispering Imps (home only) —— cream stock, bordeaux ink, ваши PNG —— */
+/* —— Whispering Imps (home) —— розовый фон, атмосфера колоды, без шума/сетки —— */
 body:has(.page-whispering-imps) {
-  background: #f2efe6;
+  background: #f8d0dc;
 }
 
 .page-whispering-imps {
-  --imp-bg: #f2efe6;
-  --imp-bg-deep: #ebe6dc;
-  --imp-ink: #1c1714;
-  --imp-muted: #524840;
-  --imp-rule: rgba(28, 23, 20, 0.88);
-  /* Бордо карточного сюита (ближе к референсу #8B0000 / печать) */
-  --imp-crimson: #8b1a2d;
-  --imp-crimson-dark: #5c101c;
-  --imp-crimson-soft: rgba(139, 26, 45, 0.22);
+  /* 60% розовая база (аналогичные оттенки — спокойный монохром) */
+  --imp-bg: #f8d0dc;
+  --imp-bg-mid: #f5c0cf;
+  --imp-bg-deep: #e8a8bc;
+  --imp-ink: #2a141c;
+  --imp-muted: #6b3d4d;
+  --imp-rule: rgba(42, 20, 28, 0.2);
+  /* «Черви» / печать USPC + розовый из векторов #DE516C */
+  --imp-crimson: #b83250;
+  --imp-crimson-dark: #7a1f36;
+  --imp-accent-rose: #de516c;
+  --imp-crimson-soft: rgba(184, 50, 80, 0.28);
+  --imp-glass: rgba(255, 255, 255, 0.42);
+  --imp-glass-border: rgba(255, 255, 255, 0.55);
   position: relative;
   z-index: 0;
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--imp-ink);
   background-color: var(--imp-bg);
-  /* Свет + лёгкая «зернистость» бумаги + сетка как верже */
   background-image:
-    radial-gradient(ellipse 130% 75% at 50% -45%, rgba(255, 255, 255, 0.62), transparent 55%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E"),
-    linear-gradient(90deg, rgba(28, 23, 20, 0.032) 1px, transparent 1px),
-    linear-gradient(rgba(28, 23, 20, 0.026) 1px, transparent 1px);
-  background-size:
-    auto,
-    200px 200px,
-    100% 100%,
-    100% 100%;
-  background-position: center;
+    radial-gradient(ellipse 120% 85% at 50% -20%, rgba(255, 255, 255, 0.55), transparent 52%),
+    radial-gradient(ellipse 90% 70% at 100% 80%, rgba(222, 81, 108, 0.14), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 0% 60%, rgba(255, 182, 200, 0.35), transparent 45%),
+    linear-gradient(180deg, #fce3ea 0%, #f8d0dc 38%, #f5c2d4 100%);
 }
 
 .page-whispering-imps::before {
@@ -906,11 +904,8 @@ body:has(.page-whispering-imps) {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    url("/whisper-card-logo.svg") no-repeat 104% -2% / min(420px, 56vw),
-    url("/whisper-card-logo.svg") no-repeat -12% 102% / min(300px, 48vw);
-  opacity: 0.13;
-  mix-blend-mode: multiply;
+  background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(222, 81, 108, 0.1), transparent 60%);
+  mix-blend-mode: normal;
 }
 
 .page-whispering-imps > * {
@@ -940,28 +935,30 @@ body:has(.page-whispering-imps) {
 
 @keyframes whisper-starfield-breathe {
   from {
-    opacity: 0.88;
+    opacity: 0.72;
   }
 
   to {
-    opacity: 1;
+    opacity: 0.9;
   }
 }
 
 body:has(.page-whispering-imps) .skip-link {
-  color: var(--imp-bg, #f2efe6);
+  color: var(--imp-bg, #f8d0dc);
   background: var(--imp-ink);
   border: 1px solid var(--imp-ink);
 }
 
 .page-whispering-imps .site-header {
-  border-bottom: 3px double rgba(139, 26, 45, 0.45);
-  background: rgba(242, 239, 230, 0.97);
-  backdrop-filter: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  background: var(--imp-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .page-whispering-imps .site-logo {
-  font-family: "IM Fell English", "Cormorant Garamond", Georgia, serif;
+  font-family: "Playfair Display", "IM Fell English", Georgia, serif;
   font-weight: 700;
   font-size: 1.35rem;
   letter-spacing: 0.02em;
@@ -981,35 +978,28 @@ body:has(.page-whispering-imps) .skip-link {
 
 .page-whispering-imps .site-logo-imp-graphic {
   flex-shrink: 0;
-  height: 52px;
-  width: auto;
-  max-width: 5.75rem;
   object-fit: contain;
-  object-position: center top;
-  mix-blend-mode: multiply;
-  filter: contrast(1.22) brightness(0.9) sepia(0.28) saturate(2.4) hue-rotate(318deg);
-  opacity: 0.96;
+  object-position: center;
+  mix-blend-mode: normal;
+  filter: drop-shadow(0 2px 6px rgba(42, 20, 28, 0.12));
+  opacity: 1;
 }
 
-/* Узкий вертикальный вектор (121×848): чуть шире в шапке, верхняя часть с персонажами */
-.page-whispering-imps .site-logo-imp-graphic--svg {
-  width: clamp(22px, 5.5vw, 34px);
-  height: 52px;
-  max-width: none;
-  object-fit: cover;
-  object-position: 50% 12%;
-  filter: contrast(1.08) saturate(1.05);
-  mix-blend-mode: multiply;
-  opacity: 0.98;
+/* Карточный logo.svg (247×238) */
+.page-whispering-imps .site-logo-imp-card {
+  height: 48px;
+  width: auto;
+  max-width: 3.25rem;
+  aspect-ratio: 247 / 238;
 }
 
 .page-whispering-imps .site-logo-wordmark {
-  font-family: "IM Fell English SC", "IM Fell English", Georgia, serif;
+  font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  font-size: 1.28rem;
+  letter-spacing: 0.06em;
+  font-size: 1.22rem;
   color: var(--imp-ink);
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .page-whispering-imps .site-logo:hover {
@@ -1061,41 +1051,39 @@ body:has(.page-whispering-imps) .skip-link {
   outline-offset: 3px;
 }
 
+.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo) {
+  color: var(--imp-crimson-dark);
+}
+
+.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo):hover {
+  color: var(--imp-accent-rose);
+}
+
 .page-whispering-imps .landing-whisper {
-  font-family: "Libre Baskerville", "Newsreader", Georgia, "Times New Roman", serif;
-  font-size: 1.04rem;
-  line-height: 1.62;
+  font-family: "Lora", "Libre Baskerville", Georgia, serif;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  font-weight: 400;
 }
 
 .page-whispering-imps .imp-parchment-wrap {
   position: relative;
   margin-top: 0.35rem;
   padding: clamp(1.35rem, 3.5vw, 2.15rem);
-  border: 3px double rgba(139, 26, 45, 0.42);
-  background: linear-gradient(180deg, rgba(255, 252, 246, 0.72) 0%, rgba(248, 244, 236, 0.5) 100%);
+  border: 1px solid var(--imp-glass-border);
+  border-radius: 4px;
+  background: var(--imp-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 16px 48px rgba(40, 22, 18, 0.07);
+    0 4px 24px rgba(42, 20, 28, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
 .page-whispering-imps .imp-hero-card {
   position: relative;
   overflow: hidden;
   padding-bottom: 0.35rem;
-}
-
-.page-whispering-imps .imp-hero-motif-watermark {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  transform: translate(-50%, -50%);
-  width: min(360px, 82vw);
-  height: min(220px, 34vw);
-  max-height: 42vh;
-  background: url("/whisper-card-logo.svg") center / contain no-repeat;
-  opacity: 0.075;
-  mix-blend-mode: multiply;
-  pointer-events: none;
 }
 
 .page-whispering-imps .imp-hero-flank-svg {
@@ -1110,36 +1098,37 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .landing-whisper h1 {
-  font-family: "IM Fell English SC", "IM Fell English", Georgia, serif;
-  font-weight: 600;
-  font-size: clamp(2.5rem, 7vw, 3.65rem);
-  letter-spacing: 0.1em;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(2.35rem, 6.5vw, 3.35rem);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
   color: var(--imp-crimson-dark);
-  text-shadow: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
   margin: 0.5rem 0 0;
+  line-height: 1.12;
 }
 
 .page-whispering-imps .landing-whisper .eyebrow {
-  color: var(--imp-crimson);
-  letter-spacing: 0.18em;
-  font-family: "IM Fell English SC", Georgia, serif;
+  color: var(--imp-accent-rose);
+  letter-spacing: 0.2em;
+  font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .page-whispering-imps .imp-era-tag {
   margin: 0.35rem 0 0.85rem;
   max-width: 40rem;
-  font-family: "Cormorant Garamond", "IM Fell English", Georgia, serif;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-family: "Lora", "Cormorant Garamond", Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 400;
   font-style: italic;
   color: var(--imp-muted);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .page-whispering-imps .imp-era-tag cite {
@@ -1194,14 +1183,14 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .landing-whisper .landing-h2 {
-  font-family: "IM Fell English SC", Georgia, serif;
+  font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
-  font-size: clamp(0.95rem, 2.1vw, 1.08rem);
-  letter-spacing: 0.16em;
+  font-size: clamp(0.92rem, 2vw, 1.05rem);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--imp-crimson-dark);
-  border-bottom-color: var(--imp-crimson);
-  opacity: 0.95;
+  border-bottom-color: rgba(222, 81, 108, 0.45);
+  opacity: 0.98;
 }
 
 .page-whispering-imps .imp-divider {
@@ -1217,12 +1206,14 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .imp-cta-frame {
-  background: rgba(255, 255, 255, 0.28);
-  border: 3px double var(--imp-crimson);
-  border-radius: 0;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid var(--imp-glass-border);
+  border-radius: 4px;
   padding: 1.35rem 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: inset 0 0 0 1px var(--imp-ink);
+  box-shadow:
+    0 2px 16px rgba(42, 20, 28, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .page-whispering-imps .btn-download-solo {
@@ -1231,16 +1222,16 @@ body:has(.page-whispering-imps) .skip-link {
   justify-content: center;
   min-height: 48px;
   padding: 0 1.75rem;
-  font-family: "IM Fell English SC", Georgia, serif;
-  font-size: 1.15rem;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.05rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #f8f3ea;
-  background: var(--imp-crimson);
-  border: 2px solid var(--imp-crimson-dark);
-  border-radius: 0;
-  box-shadow: 4px 4px 0 var(--imp-crimson-soft);
+  color: #fffaf9;
+  background: linear-gradient(165deg, var(--imp-accent-rose) 0%, var(--imp-crimson) 100%);
+  border: 1px solid var(--imp-crimson-dark);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(122, 31, 54, 0.28);
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -1250,9 +1241,9 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .btn-download-solo:hover {
-  filter: brightness(1.06);
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 rgba(139, 26, 45, 0.28);
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(122, 31, 54, 0.32);
 }
 
 .page-whispering-imps .btn-download-solo:focus-visible {
@@ -1261,8 +1252,8 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .btn-download-solo:active {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 var(--imp-crimson-soft);
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(122, 31, 54, 0.22);
 }
 
 .page-whispering-imps .imp-aux-links {
@@ -1274,7 +1265,7 @@ body:has(.page-whispering-imps) .skip-link {
 .page-whispering-imps .imp-aux-links a {
   color: var(--imp-crimson-dark);
   font-weight: 600;
-  font-family: "IM Fell English", Georgia, serif;
+  font-family: "Lora", Georgia, serif;
 }
 
 .page-whispering-imps .imp-aux-links a:hover {
@@ -1287,9 +1278,9 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .landing-whisper .step-icon {
-  background: rgba(139, 26, 45, 0.07);
-  border: 1px solid var(--imp-crimson);
-  border-radius: 0;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(222, 81, 108, 0.35);
+  border-radius: 4px;
   color: var(--imp-crimson-dark);
 }
 
