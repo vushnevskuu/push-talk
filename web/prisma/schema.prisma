@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id                         String         @id @default(cuid())
+  email                      String         @unique
+  airwallexBillingCustomerId String?        @unique
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  subscriptions              Subscription[]
+  accessTokens               AccessToken[]
+}
+
+model Subscription {
+  id                String    @id @default(cuid())
+  customerId        String
+  customer          Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  airwallexSubId    String?   @unique
+  status            String
+  trialEndsAt       DateTime?
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([customerId])
+}
+
+model AccessToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([customerId])
+}
+
+model CheckoutClaim {
+  checkoutId String   @id
+  customerId String
+  createdAt  DateTime @default(now())
+}
