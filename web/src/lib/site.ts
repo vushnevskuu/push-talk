@@ -22,6 +22,10 @@ export function siteOrigin(): string {
 /** Mac app bundle ZIP served from `web/public`. */
 export const macAppZipPath = "/VoiceInsert-macos.zip";
 
+/** Default meta / JSON-LD description: one clear line, no navigation fluff. */
+export const siteDescription =
+  "VoiceInsert: hold-to-talk dictation for Mac. On-device speech; text in any focused app or Obsidian. macOS 13+.";
+
 /**
  * Tip link: Vercel env first, then optional hardcoded fallback (one place if you skip env).
  * Set `NEXT_PUBLIC_DONATION_URL` in production, or paste your Buy Me a Coffee / Ko-fi URL below.
@@ -53,7 +57,7 @@ export function macAppZipAbsoluteUrl(): string {
 }
 
 /** Shown in footer; override with NEXT_PUBLIC_SITE_AUTHOR_NAME on Vercel. */
-const defaultAuthorName = "Aleksey Vishnevsky";
+const defaultAuthorName = "Alexey Vishnevsky";
 
 /** Full profile URL; override with NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN. */
 const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vushnevskuu/";

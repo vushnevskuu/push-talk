@@ -1,6 +1,6 @@
 import { WHISPER_STAR_PATH } from "@/lib/whisperStarPath";
 
-/** Small corner flourishes in the spirit of vintage playing-card engravings (crimson ink). */
+/** Декоративные угловые завитки (бордо). */
 
 /** Угловой индекс карты: звезда (из star.svg) + штрихи — по бокам от главного заголовка. */
 export function ImpHeroFlank({ flip = false }: { flip?: boolean }) {

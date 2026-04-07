@@ -1,6 +1,6 @@
 # VoiceInsert
 
-> VoiceInsert is a macOS menu bar app for hold-to-talk dictation: hold a global shortcut, speak, release—text goes into the focused text field or into an Obsidian vault as Markdown. Speech recognition uses Apple’s on-device stack (Microphone + Speech Recognition permissions). macOS 13+.
+> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech. macOS 13+.
 
 ## Site
 

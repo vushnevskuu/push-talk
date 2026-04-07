@@ -2,12 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { WhisperStarfield } from "@/components/WhisperStarfield";
-import { macAppZipAbsoluteUrl, siteOrigin } from "@/lib/site";
+import { macAppZipAbsoluteUrl, siteDescription, siteOrigin } from "@/lib/site";
 import HomeClient from "./HomeClient";
 
-const description =
-  "VoiceInsert: hold-to-talk dictation for Mac. Insert speech into any focused app or save voice notes to Obsidian. Menu bar app, on-device recognition, macOS 13+. FAQ, download, GitHub.";
+const description = siteDescription;
 
 export const metadata: Metadata = {
   description,
@@ -40,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f8d0dc",
+  themeColor: "#ffffff",
 };
 
 export default function HomePage() {
@@ -79,7 +77,6 @@ export default function HomePage() {
     <>
       <JsonLd data={[softwareJsonLd, websiteJsonLd]} />
       <div className="page-whispering-imps">
-        <WhisperStarfield />
         <SiteHeader landingMode />
         <HomeClient />
         <SiteFooter landingMode />

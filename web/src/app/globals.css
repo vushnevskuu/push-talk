@@ -100,7 +100,7 @@ a:focus-visible {
 }
 
 h1 {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: clamp(2rem, 5vw, 3.05rem);
   font-weight: 700;
   line-height: 1.2;
@@ -209,7 +209,7 @@ h1 {
 }
 
 .card h2 {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: 1.35rem;
   margin: 0 0 0.75rem;
 }
@@ -294,8 +294,10 @@ footer {
   max-width: 52rem;
 }
 
-.site-footer-compact > a {
-  font-weight: 600;
+.site-footer-compact a {
+  font-weight: 400;
+  text-decoration: none;
+  font-family: inherit;
 }
 
 .site-footer-sep {
@@ -348,7 +350,7 @@ footer {
 }
 
 .site-logo {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-weight: 700;
   font-size: 1.15rem;
   text-decoration: none;
@@ -410,7 +412,7 @@ footer {
 }
 
 .landing-h2 {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: clamp(1.05rem, 2.5vw, 1.2rem);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -540,7 +542,7 @@ footer {
 }
 
 .path-card-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: 1.2rem;
   margin: 0 0 0.5rem;
 }
@@ -704,7 +706,7 @@ footer {
 }
 
 .claim-card-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: 1.35rem;
   margin: 0 0 0.75rem;
 }
@@ -750,7 +752,7 @@ footer {
 }
 
 .seo-section-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: 1.35rem;
   margin: 0 0 0.75rem;
 }
@@ -865,47 +867,32 @@ footer {
   margin-top: 1rem;
 }
 
-/* —— Whispering Imps (home) —— розовый фон, атмосфера колоды, без шума/сетки —— */
+/* —— VoiceInsert landing (home): светлый фон, бордовые акценты —— */
 body:has(.page-whispering-imps) {
-  background: #f8d0dc;
+  background: #ffffff;
+  background-image: none;
 }
 
 .page-whispering-imps {
-  /* 60% розовая база (аналогичные оттенки — спокойный монохром) */
-  --imp-bg: #f8d0dc;
-  --imp-bg-mid: #f5c0cf;
-  --imp-bg-deep: #e8a8bc;
+  --imp-bg: #ffffff;
+  --imp-bg-mid: #f5f5f5;
+  --imp-bg-deep: #ebebeb;
   --imp-ink: #2a141c;
   --imp-muted: #6b3d4d;
-  --imp-rule: rgba(42, 20, 28, 0.2);
-  /* «Черви» / печать USPC + розовый из векторов #DE516C */
+  --imp-rule: rgba(42, 20, 28, 0.12);
   --imp-crimson: #b83250;
   --imp-crimson-dark: #7a1f36;
   --imp-accent-rose: #de516c;
-  --imp-crimson-soft: rgba(184, 50, 80, 0.28);
-  --imp-glass: rgba(255, 255, 255, 0.42);
-  --imp-glass-border: rgba(255, 255, 255, 0.55);
+  --imp-crimson-soft: rgba(184, 50, 80, 0.18);
+  --imp-glass: rgba(255, 255, 255, 0.95);
+  --imp-glass-border: rgba(42, 20, 28, 0.1);
   position: relative;
   z-index: 0;
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--imp-ink);
   background-color: var(--imp-bg);
-  background-image:
-    radial-gradient(ellipse 120% 85% at 50% -20%, rgba(255, 255, 255, 0.55), transparent 52%),
-    radial-gradient(ellipse 90% 70% at 100% 80%, rgba(222, 81, 108, 0.14), transparent 50%),
-    radial-gradient(ellipse 80% 60% at 0% 60%, rgba(255, 182, 200, 0.35), transparent 45%),
-    linear-gradient(180deg, #fce3ea 0%, #f8d0dc 38%, #f5c2d4 100%);
-}
-
-.page-whispering-imps::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(222, 81, 108, 0.1), transparent 60%);
-  mix-blend-mode: normal;
+  background-image: none;
 }
 
 .page-whispering-imps > * {
@@ -944,82 +931,129 @@ body:has(.page-whispering-imps) {
 }
 
 body:has(.page-whispering-imps) .skip-link {
-  color: var(--imp-bg, #f8d0dc);
+  color: var(--imp-bg, #ffffff);
   background: var(--imp-ink);
   border: 1px solid var(--imp-ink);
 }
 
 .page-whispering-imps .site-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
-  background: var(--imp-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  border-bottom: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
 }
 
-.page-whispering-imps .site-logo {
-  font-family: "Playfair Display", "IM Fell English", Georgia, serif;
-  font-weight: 700;
-  font-size: 1.35rem;
-  letter-spacing: 0.02em;
-  background: none;
-  -webkit-background-clip: unset;
-  background-clip: unset;
-  color: var(--imp-ink);
-}
-
-.page-whispering-imps .site-logo--imps {
-  display: inline-flex;
-  flex-direction: row;
+.page-whispering-imps .site-header--imps-landing .site-header-landing-stack {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
-  max-width: min(100%, 20rem);
+  padding-block: 0.55rem calc(1rem + 30px);
 }
 
-.page-whispering-imps .site-logo-imp-graphic {
-  flex-shrink: 0;
-  object-fit: contain;
-  object-position: center;
-  mix-blend-mode: normal;
-  filter: drop-shadow(0 2px 6px rgba(42, 20, 28, 0.12));
-  opacity: 1;
+/*
+ * Кластер wordmark + GitHub + FAQ: один контейнер. Чтобы сдвинуть всё разом, меняй только:
+ *   .site-header-brand-cluster { --brand-cluster-dx; --brand-cluster-dy; }
+ * Внутри — позиционирование подписей относительно SVG (.site-header-wordmark-block).
+ */
+.page-whispering-imps .site-header-brand-cluster {
+  --brand-cluster-dx: 0px;
+  --brand-cluster-dy: 30px;
+  width: min(100%, 420px);
+  margin-inline: auto;
+  transform: translate(var(--brand-cluster-dx), var(--brand-cluster-dy));
 }
 
-/* Карточный logo.svg (247×238) */
-.page-whispering-imps .site-logo-imp-card {
-  height: 48px;
-  width: auto;
-  max-width: 3.25rem;
-  aspect-ratio: 247 / 238;
+.page-whispering-imps .site-header-wordmark-block {
+  --over-mark-band-h: 36%;
+  --over-mark-github-x: 31.5%;
+  --over-mark-faq-x: 63.5%;
+  position: relative;
+  width: 100%;
 }
 
-.page-whispering-imps .site-logo-wordmark {
-  font-family: "Playfair Display", Georgia, serif;
+.page-whispering-imps .site-header-nav-over-wordmark {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--over-mark-band-h);
+  pointer-events: none;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  font-size: 1.22rem;
-  color: var(--imp-ink);
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.page-whispering-imps .site-header-over-mark {
+  position: absolute;
+  left: var(--over-mark-anchor-x, 50%);
+  bottom: 0.08em;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--imp-accent-rose);
   line-height: 1.15;
 }
 
-.page-whispering-imps .site-logo:hover {
-  opacity: 0.82;
-}
-
-.page-whispering-imps .site-logo:hover .site-logo-imp-graphic {
-  opacity: 1;
-}
-
-.page-whispering-imps .site-header-nav-main .nav-link {
-  color: var(--imp-muted);
-}
-
-.page-whispering-imps .site-header-nav-main .nav-link:hover {
+.page-whispering-imps .site-header-over-mark:hover {
   color: var(--imp-crimson);
 }
 
+.page-whispering-imps .site-header-over-mark--faq {
+  --over-mark-anchor-x: var(--over-mark-faq-x);
+  transform: translate(calc(-50% + 110px), -15px);
+}
+
+.page-whispering-imps .site-header-over-mark--github {
+  --over-mark-anchor-x: var(--over-mark-github-x);
+  transform: translate(calc(-50% - 80px), -15px);
+  text-transform: uppercase;
+}
+
+.page-whispering-imps .site-header-human-trance-link {
+  position: relative;
+  z-index: 1;
+  display: block;
+  line-height: 0;
+  text-decoration: none;
+  width: 100%;
+}
+
+.page-whispering-imps .site-header-human-trance-link:hover {
+  opacity: 0.9;
+}
+
+.page-whispering-imps .site-header-human-trance {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+}
+
+.page-whispering-imps .site-header-wordmark-cta {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: calc(0.85rem + 60px);
+  box-sizing: border-box;
+}
+
 .page-whispering-imps .site-footer {
-  border-top-color: var(--imp-rule);
+  border-top: none;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.page-whispering-imps .site-footer-nav {
+  justify-content: center;
 }
 
 .page-whispering-imps .site-footer-nav a {
@@ -1033,13 +1067,17 @@ body:has(.page-whispering-imps) .skip-link {
   color: var(--imp-crimson);
 }
 
-.page-whispering-imps .site-footer-compact,
-.page-whispering-imps .site-footer-note {
+.page-whispering-imps .site-footer-compact {
   color: var(--imp-muted);
+  max-width: min(36ch, 100%);
+  margin-inline: auto;
+  text-align: center;
 }
 
 .page-whispering-imps .site-footer-compact a {
   color: var(--imp-ink);
+  font-weight: 400;
+  text-decoration: none;
 }
 
 .page-whispering-imps .site-footer-compact a:hover {
@@ -1051,39 +1089,64 @@ body:has(.page-whispering-imps) .skip-link {
   outline-offset: 3px;
 }
 
-.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo) {
+.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo):not(.site-header-over-mark) {
   color: var(--imp-crimson-dark);
 }
 
-.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo):hover {
+.page-whispering-imps .wrap a:not(.btn-download-solo):not(.site-logo):not(.site-header-over-mark):hover {
   color: var(--imp-accent-rose);
 }
 
 .page-whispering-imps .landing-whisper {
-  font-family: "Lora", "Libre Baskerville", Georgia, serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   font-size: 1.0625rem;
   line-height: 1.65;
   font-weight: 400;
+  text-align: center;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .page-whispering-imps .imp-parchment-wrap {
   position: relative;
-  margin-top: 0.35rem;
-  padding: clamp(1.35rem, 3.5vw, 2.15rem);
-  border: 1px solid var(--imp-glass-border);
-  border-radius: 4px;
-  background: var(--imp-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow:
-    0 4px 24px rgba(42, 20, 28, 0.08),
-    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  margin-top: calc(0.35rem + 40px);
+  padding-top: 0;
+  padding-right: clamp(1.5rem, 4vw, 2.5rem);
+  padding-bottom: clamp(2.5rem, 7vw, 3.75rem);
+  padding-left: clamp(1.5rem, 4vw, 2.5rem);
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  /* Узкая колонка текста вместо полной ширины .wrap (52rem) */
+  max-width: min(36ch, 100%);
+  margin-inline: auto;
+}
+
+/* Ровнее вертикальный ритм между секциями колонки */
+.page-whispering-imps .imp-parchment-wrap.landing-onpage {
+  gap: clamp(1.75rem, 4.5vw, 2.75rem);
+}
+
+/* Сброс глобальной .landing-cta-block (тёмная обводка) внутри светлой колонки */
+.page-whispering-imps .imp-parchment-wrap .landing-cta-block {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.page-whispering-imps .imp-parchment-wrap .landing-hero {
+  outline: none;
+  box-shadow: none;
+  margin-top: -0.5rem;
 }
 
 .page-whispering-imps .imp-hero-card {
   position: relative;
   overflow: hidden;
-  padding-bottom: 0.35rem;
+  padding-bottom: clamp(0.5rem, 2vw, 0.75rem);
+  text-align: inherit;
 }
 
 .page-whispering-imps .imp-hero-flank-svg {
@@ -1097,66 +1160,27 @@ body:has(.page-whispering-imps) .skip-link {
   transform: scaleX(-1);
 }
 
-.page-whispering-imps .landing-whisper h1 {
-  font-family: "Playfair Display", Georgia, serif;
-  font-weight: 700;
-  font-size: clamp(2.35rem, 6.5vw, 3.35rem);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: none;
-  -webkit-background-clip: unset;
-  background-clip: unset;
-  color: var(--imp-crimson-dark);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  margin: 0.5rem 0 0;
-  line-height: 1.12;
+.page-whispering-imps .imp-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .page-whispering-imps .landing-whisper .eyebrow {
   color: var(--imp-accent-rose);
   letter-spacing: 0.2em;
-  font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
   font-size: 0.72rem;
-}
-
-.page-whispering-imps .imp-era-tag {
-  margin: 0.35rem 0 0.85rem;
-  max-width: 40rem;
-  font-family: "Lora", "Cormorant Garamond", Georgia, serif;
-  font-size: 1.02rem;
-  font-weight: 400;
-  font-style: italic;
-  color: var(--imp-muted);
-  line-height: 1.5;
-}
-
-.page-whispering-imps .imp-era-tag cite {
-  font-style: normal;
-  font-weight: 600;
-  color: var(--imp-crimson);
-  letter-spacing: 0.04em;
-}
-
-.page-whispering-imps .imp-hero-cluster {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.35rem 1rem;
-  flex-wrap: wrap;
-  margin: 0.35rem 0 0.65rem;
-  position: relative;
-  z-index: 1;
-}
-
-.page-whispering-imps .imp-hero-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   text-align: center;
-  position: relative;
-  z-index: 1;
+  text-transform: uppercase;
+  font-style: normal;
+  margin: 0 0 1rem;
 }
 
 .page-whispering-imps .imp-flourish-svg {
@@ -1170,102 +1194,169 @@ body:has(.page-whispering-imps) .skip-link {
   transform: scaleX(-1);
 }
 
-.page-whispering-imps .landing-whisper .lede,
-.page-whispering-imps .landing-whisper .landing-lead,
-.page-whispering-imps .landing-whisper .step-text,
-.page-whispering-imps .landing-whisper .landing-prose {
+.page-whispering-imps .landing-whisper .lede {
+  font-size: 16px;
   color: var(--imp-muted);
+  text-align: center;
+  margin: 0;
+  line-height: 1.65;
 }
 
-.page-whispering-imps .landing-whisper .landing-strong,
-.page-whispering-imps .landing-whisper .step-title {
+.page-whispering-imps .landing-whisper .step-text {
+  font-size: 16px;
+  color: var(--imp-muted);
+  text-align: center;
+}
+
+.page-whispering-imps .landing-whisper .landing-lead,
+.page-whispering-imps .landing-whisper .landing-prose {
+  color: var(--imp-muted);
+  text-align: center;
+}
+
+.page-whispering-imps .landing-whisper .landing-lead {
+  margin: 0 0 1.25rem;
+  line-height: 1.65;
+}
+
+.page-whispering-imps .landing-whisper .landing-prose-tight {
+  margin-top: 0.75rem;
+}
+
+.page-whispering-imps .landing-whisper .landing-strong {
   color: var(--imp-ink);
 }
 
-.page-whispering-imps .landing-whisper .landing-h2 {
-  font-family: "Playfair Display", Georgia, serif;
+/* Заголовки секций и шагов — как строка macOS · Menu bar · On-device speech */
+.page-whispering-imps .landing-whisper .landing-h2,
+.page-whispering-imps .landing-whisper .step-title {
+  color: var(--imp-accent-rose);
+  letter-spacing: 0.2em;
   font-weight: 600;
-  font-size: clamp(0.92rem, 2vw, 1.05rem);
-  letter-spacing: 0.14em;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  color: var(--imp-crimson-dark);
-  border-bottom-color: rgba(222, 81, 108, 0.45);
-  opacity: 0.98;
+  font-style: normal;
+}
+
+.page-whispering-imps .landing-whisper .landing-h2 {
+  text-align: center;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: none;
+}
+
+.page-whispering-imps .landing-whisper .step-title {
+  text-align: center;
+}
+
+/* Шаги: иконка сверху, текст по центру */
+.page-whispering-imps .landing-whisper .step-item {
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.page-whispering-imps .landing-whisper .step-item > div {
+  width: 100%;
+  text-align: center;
+}
+
+.page-whispering-imps .imp-parchment-wrap .landing-steps {
+  gap: 1.35rem;
 }
 
 .page-whispering-imps .imp-divider {
-  color: var(--imp-crimson);
-  margin: 0.35rem 0 1.25rem;
+  display: flex;
+  justify-content: center;
+  margin: 0;
   max-width: 100%;
+  flex-shrink: 0;
 }
 
-.page-whispering-imps .imp-divider-svg {
+/* Меньше воздуха между lede и первой «свечой» (не трогаем остальные разделители) */
+.page-whispering-imps .landing-hero.hero-home {
+  padding-block-end: 0;
+}
+
+.page-whispering-imps .landing-hero + .imp-divider {
+  margin: clamp(-0.45rem, -1.5vw, -0.2rem) 0 0;
+}
+
+.page-whispering-imps .imp-divider-svecha {
   display: block;
-  width: 100%;
-  height: 14px;
+  width: clamp(17px, 5.33vw, 27px);
+  height: auto;
 }
 
 .page-whispering-imps .imp-cta-frame {
-  background: rgba(255, 255, 255, 0.38);
-  border: 1px solid var(--imp-glass-border);
-  border-radius: 4px;
-  padding: 1.35rem 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow:
-    0 2px 16px rgba(42, 20, 28, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: var(--imp-bg-mid);
+  border: none;
+  border-radius: 0;
+  padding: 1.25rem 1.25rem;
+  margin: 0 0 1.75rem;
+  box-shadow: none;
 }
 
-.page-whispering-imps .btn-download-solo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 1.75rem;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #fffaf9;
-  background: linear-gradient(165deg, var(--imp-accent-rose) 0%, var(--imp-crimson) 100%);
-  border: 1px solid var(--imp-crimson-dark);
-  border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(122, 31, 54, 0.28);
+/* Кнопка скачивания: целиком SVG KNOPKA из ~/Desktop/мусор/ */
+.page-whispering-imps .btn-download-solo.btn-download-solo--knopka {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  margin-inline: auto;
+  margin-block: 0;
+  min-height: 0;
+  line-height: 0;
+  font-size: 0;
+  color: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
-.page-whispering-imps .btn-download-solo:hover {
-  filter: brightness(1.05);
+.page-whispering-imps .btn-download-solo--knopka:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(122, 31, 54, 0.32);
+  filter: brightness(1.04);
 }
 
-.page-whispering-imps .btn-download-solo:focus-visible {
+.page-whispering-imps .btn-download-solo--knopka:focus-visible {
   outline: 2px solid var(--imp-crimson-dark);
   outline-offset: 4px;
+  border-radius: 4px;
 }
 
-.page-whispering-imps .btn-download-solo:active {
+.page-whispering-imps .btn-download-solo--knopka:active {
   transform: translateY(0);
-  box-shadow: 0 2px 10px rgba(122, 31, 54, 0.22);
+  filter: brightness(0.98);
+}
+
+.page-whispering-imps .btn-download-solo-knopka {
+  display: block;
+  width: min(
+    100%,
+    clamp(calc(17rem / 1.5), min(calc(92vw / 1.5), 100%), calc(40rem / 1.5))
+  );
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  vertical-align: top;
 }
 
 .page-whispering-imps .imp-aux-links {
-  margin: 1rem 0 0;
+  margin: 0;
   font-size: 0.95rem;
   color: var(--imp-muted);
+  text-align: center;
 }
 
 .page-whispering-imps .imp-aux-links a {
   color: var(--imp-crimson-dark);
   font-weight: 600;
-  font-family: "Lora", Georgia, serif;
 }
 
 .page-whispering-imps .imp-aux-links a:hover {
@@ -1278,10 +1369,21 @@ body:has(.page-whispering-imps) .skip-link {
 }
 
 .page-whispering-imps .landing-whisper .step-icon {
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(222, 81, 108, 0.35);
-  border-radius: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   color: var(--imp-crimson-dark);
+  width: auto;
+  height: auto;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.page-whispering-imps .landing-whisper .step-icon-bullet {
+  display: block;
+  width: clamp(calc(3rem / 1.5), calc(18vw / 1.5), calc(5.5rem / 1.5));
+  height: auto;
+  max-width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

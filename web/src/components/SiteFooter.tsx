@@ -3,7 +3,7 @@ import { donationPageUrl, macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName }
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
 
 type SiteFooterProps = {
-  /** Landing: hide Home, FAQ, Download (single FAQ in header; one Download on page). */
+  /** Landing: только опциональный donate — GitHub/релизы в шапке лендинга. */
   landingMode?: boolean;
 };
 
@@ -21,14 +21,14 @@ export function SiteFooter({ landingMode = false }: SiteFooterProps) {
             <a href="/">Home</a>
             <a href="/faq">FAQ</a>
             <a href={macAppZipPath}>Download</a>
+            <a href={githubBase} rel="noopener noreferrer">
+              GitHub
+            </a>
+            <a href={`${githubBase}/releases`} rel="noopener noreferrer">
+              Releases
+            </a>
           </>
         ) : null}
-        <a href={githubBase} rel="noopener noreferrer">
-          GitHub
-        </a>
-        <a href={`${githubBase}/releases`} rel="noopener noreferrer">
-          Releases
-        </a>
         {donate ? (
           <a href={donate} rel="noopener noreferrer">
             Buy me a coffee
@@ -45,15 +45,6 @@ export function SiteFooter({ landingMode = false }: SiteFooterProps) {
         <a href={linkedIn} rel="noopener noreferrer" target="_blank">
           LinkedIn
         </a>
-        <span className="site-footer-note"> (English only)</span>
-        <span className="site-footer-sep" aria-hidden="true">
-          ·
-        </span>
-        <span>Free app</span>
-        <span className="site-footer-sep" aria-hidden="true">
-          ·
-        </span>
-        <span>Not Apple</span>
       </p>
     </footer>
   );
