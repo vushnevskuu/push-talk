@@ -10,7 +10,7 @@
 
 ## Релизы
 
-Сборки для macOS публикуются на сайте и/или в [Releases](https://github.com/<ORG>/<THIS_REPO>/releases) этого репозитория.
+Сборки для macOS публикуются на сайте и/или в [Releases](https://github.com/vushnevskuu/push-talk-public/releases) этого репозитория.
 
 Исходный код приложения в этом репозитории **не публикуется** (закрытая разработка).
 

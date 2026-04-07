@@ -7,19 +7,16 @@
 
 ## Что сделать на GitHub (вручную)
 
-1. Создай **новый репозиторий** → **Public**, имя напр. `push-talk-public` или `VoiceInsert`.
-2. Не клонируй туда этот же код: в публичном репо **нет** исходников приложения.
-3. Локально:
+1. **Публичный репозиторий уже создан:** https://github.com/vushnevskuu/push-talk-public  
+   (через `gh repo create`; исходников приложения там нет.)
+2. Если нужен ещё один публичный репо — снова: **New repository** → Public, или  
+   `gh repo create <имя> --public --description "..."`.
+3. Локально (если клонируешь с нуля):
 
    ```bash
-   mkdir push-talk-public && cd push-talk-public
-   git init
-   cp "/path/to/голосовое управление/docs/templates/public-repo-README.md" README.md
-   # отредактируй ссылки под свой домен и org
-   git add README.md && git commit -m "Initial public landing for VoiceInsert"
-   git branch -M main
-   git remote add origin https://github.com/<ORG>/<PUBLIC_REPO>.git
-   git push -u origin main
+   git clone https://github.com/vushnevskuu/push-talk-public.git
+   cd push-talk-public
+   # правки README / announcements → commit → push
    ```
 
 4. По желанию добавь `CHANGELOG.md`, папку `announcements/` (один файл на релиз или на месяц).
