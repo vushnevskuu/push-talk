@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { ImpCornerFlourish } from "@/components/ImpOrnaments";
 import { donationPageUrl } from "@/lib/site";
 
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
@@ -38,7 +39,26 @@ export default function HomeClient() {
 
       <header className="landing-hero hero-home landing-reveal" aria-labelledby="landing-title">
         <p className="eyebrow">macOS · Menu bar · On-device speech</p>
-        <h1 id="landing-title">VoiceInsert</h1>
+        <p className="imp-era-tag">
+          Styling after the <cite>Whispering Imps</cite> playing-card art — pencil devils, cream stock, crimson ink.
+        </p>
+        <div className="imp-hero-cluster">
+          <ImpCornerFlourish />
+          <div className="imp-hero-center">
+            <div className="imp-hero-monogram" aria-hidden="true">
+              <img
+                className="imp-hero-sheet-cut"
+                src="/logo-whispering-imps.png"
+                alt=""
+                width={200}
+                height={162}
+                decoding="async"
+              />
+            </div>
+            <h1 id="landing-title">VoiceInsert</h1>
+          </div>
+          <ImpCornerFlourish flip />
+        </div>
         <p className="lede hero-lede landing-lede">
           Hold a shortcut, speak, release — text lands in the focused field. Optional second shortcut saves Markdown into
           your Obsidian vault. Recognition stays on your Mac.
