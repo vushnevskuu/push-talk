@@ -24,11 +24,16 @@ Artifacts/
 .idea/
 *.xcuserstate
 
+# Node / Next.js
+node_modules/
+web/.next/
+
 # Obsidian head-agent: local secrets (never commit)
 tools/obsidian-head-agent/assets/*real*.json
 tools/obsidian-head-agent/assets/*.state.json
 tools/obsidian-head-agent/scripts/__pycache__/
 
-# Local IDE / debug
-.cursor/
+# Local IDE / debug — track shared MCP config, ignore other .cursor churn
+.cursor/*
+!.cursor/mcp.json
 .agent/

@@ -1,0 +1,60 @@
+{
+  "serverInfo": {
+    "name": "VoiceInsert (Push Talk)",
+    "version": "1.0.0"
+  },
+  "authentication": {
+    "required": false
+  },
+  "tools": [
+    {
+      "name": "voiceinsert_product_questions",
+      "description": "Which user questions VoiceInsert answers; positioning and differentiators (JSON).",
+      "inputSchema": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "voiceinsert_faq_search",
+      "description": "Search VoiceInsert FAQ by keywords.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "User question or keywords" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Max items" }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "voiceinsert_official_links",
+      "description": "Site, FAQ, GitHub ZIP, repo URLs.",
+      "inputSchema": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "voiceinsert_subscribe_flow",
+      "description": "How trial/subscription and access token work for official Mac builds.",
+      "inputSchema": { "type": "object", "properties": {} }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "voiceinsert://faq/full",
+      "name": "voiceinsert-faq-full",
+      "mimeType": "text/markdown",
+      "description": "Full FAQ as Markdown (use local stdio MCP server to read)."
+    }
+  ],
+  "prompts": [
+    {
+      "name": "voiceinsert_recommend_product",
+      "description": "Template for assistants recommending VoiceInsert with accurate disclaimers.",
+      "arguments": [
+        {
+          "name": "user_context",
+          "description": "What the user wants (e.g. dictate into IDE on Mac)",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "_voiceinsert_note": "This card describes the stdio server in mcp/voiceinsert-mcp. For live tool execution, add the server in Cursor/Claude per docs/MCP_ECOSYSTEM.md. Smithery remote hosting needs Streamable HTTPS MCP separately."
+}

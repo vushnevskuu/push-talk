@@ -1,0 +1,34 @@
+{
+  "name": "voiceinsert-mcp",
+  "version": "1.0.0",
+  "description": "MCP server: VoiceInsert / Push Talk product context, FAQ search, official links (stdio for Cursor, Claude, etc.)",
+  "type": "module",
+  "bin": {
+    "voiceinsert-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "sync-faq": "node ../scripts/sync-faq-json.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "voiceinsert",
+    "dictation",
+    "macos",
+    "obsidian"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
+  }
+}

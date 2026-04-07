@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "voiceinsert": {
+      "command": "node",
+      "args": ["${workspaceFolder}/mcp/voiceinsert-mcp/dist/index.js"],
+      "env": {
+        "VOICEINSERT_SITE_URL": "https://push-talk.vercel.app",
+        "VOICEINSERT_GITHUB_REPO": "vushnevskuu/push-talk"
+      }
+    }
+  }
+}
