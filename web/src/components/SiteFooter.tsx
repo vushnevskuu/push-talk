@@ -3,7 +3,7 @@ import { donationPageUrl, macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName }
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
 
 type SiteFooterProps = {
-  /** Landing: только опциональный donate — GitHub/релизы в шапке лендинга. */
+  /** Landing: ссылка «Как это работает» + опциональный donate; полные ссылки — вне landing. */
   landingMode?: boolean;
 };
 
@@ -19,6 +19,7 @@ export function SiteFooter({ landingMode = false }: SiteFooterProps) {
         {!landingMode ? (
           <>
             <a href="/">Home</a>
+            <a href="/demo.html">Как это работает</a>
             <a href="/faq">FAQ</a>
             <a href={macAppZipPath}>Download</a>
             <a href={githubBase} rel="noopener noreferrer">
@@ -28,7 +29,9 @@ export function SiteFooter({ landingMode = false }: SiteFooterProps) {
               Releases
             </a>
           </>
-        ) : null}
+        ) : (
+          <a href="/demo.html">Как это работает</a>
+        )}
         {donate ? (
           <a href={donate} rel="noopener noreferrer">
             Buy me a coffee

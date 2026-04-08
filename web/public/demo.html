@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VoiceInsert — как это работает</title>
+  <meta name="description" content="Демо сценария: удержание хоткея, диктовка, вставка текста в активное поле. macOS, локальное распознавание речи Apple." />
+  <link rel="icon" href="/logo-whispering-imps.png" type="image/png" />
+  <style>
+    :root {
+      --bg: #0c0b0d;
+      --card: #16141a;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f4f0f5;
+      --muted: #9a8fa3;
+      --accent: #e8a4bc;
+      --flame-core: #fff5e8;
+      --flame-mid: #ff9a6b;
+      --flame-edge: #c44d6d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, #1f1524 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    header { text-align: center; margin-bottom: 2.5rem; }
+    header img { width: 72px; height: auto; margin-bottom: 1rem; border-radius: 12px; }
+    h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.5rem; }
+    .sub { color: var(--muted); font-size: 0.95rem; max-width: 34em; margin: 0 auto; }
+    .hud-demo {
+      margin: 2.5rem auto;
+      padding: 1.75rem 1.25rem 2rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      text-align: center;
+    }
+    .hud-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 1rem; }
+    .hud-capsule {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: min(100%, 320px);
+      height: 56px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+    }
+    .flame-bar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 32px;
+      padding: 0 24px;
+    }
+    .flame-bar span {
+      width: 5px;
+      border-radius: 3px 3px 1px 1px;
+      background: linear-gradient(180deg, var(--flame-core) 0%, var(--flame-mid) 45%, var(--flame-edge) 100%);
+      opacity: 0.85;
+      animation: flicker 0.7s ease-in-out infinite alternate;
+    }
+    .flame-bar span:nth-child(1) { height: 40%; animation-delay: 0s; }
+    .flame-bar span:nth-child(2) { height: 75%; animation-delay: 0.1s; }
+    .flame-bar span:nth-child(3) { height: 100%; animation-delay: 0.05s; }
+    .flame-bar span:nth-child(4) { height: 70%; animation-delay: 0.15s; }
+    .flame-bar span:nth-child(5) { height: 45%; animation-delay: 0.2s; }
+    .flame-bar span:nth-child(6) { height: 65%; animation-delay: 0.12s; }
+    .flame-bar span:nth-child(7) { height: 35%; animation-delay: 0.08s; }
+    @keyframes flicker {
+      from { transform: scaleY(0.92); opacity: 0.75; filter: brightness(0.95); }
+      to { transform: scaleY(1.06); opacity: 1; filter: brightness(1.08); }
+    }
+    .hud-caption { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); }
+    ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+    ol.steps li {
+      counter-increment: s;
+      position: relative;
+      padding: 1.1rem 1.1rem 1.1rem 3.2rem;
+      margin-bottom: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    ol.steps li::before {
+      content: counter(s);
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.65rem;
+      height: 1.65rem;
+      line-height: 1.65rem;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 8px;
+      background: rgba(232, 164, 188, 0.15);
+      color: var(--accent);
+    }
+    ol.steps strong { display: block; margin-bottom: 0.25rem; }
+    .flow {
+      margin: 2rem 0;
+      padding: 1.25rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .flow code { color: var(--text); font-size: 0.85em; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 2.5rem; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.65rem 1.25rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #f0c4d4 0%, #e8a4bc 50%, #d97fa0 100%);
+      color: #1a0a12;
+    }
+    .btn-primary:hover { filter: brightness(1.05); text-decoration: none; }
+    .btn-ghost {
+      border-color: var(--border);
+      color: var(--text);
+      background: transparent;
+    }
+    .btn-ghost:hover { background: rgba(255, 255, 255, 0.05); text-decoration: none; }
+    footer.note { margin-top: 3rem; font-size: 0.8rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="/logo-whispering-imps.png" width="72" height="58" alt="" />
+      <h1>Как работает VoiceInsert</h1>
+      <p class="sub">
+        Утилита в строке меню macOS: удерживаете свою комбинацию клавиш, говорите, отпускаете —
+        распознанный текст оказывается в том поле, где уже стоит курсор (браузер, мессенджер, IDE, Obsidian и т.д.).
+        Распознавание — через системный Speech framework на устройстве.
+      </p>
+    </header>
+
+    <div class="hud-demo" aria-hidden="true">
+      <div class="hud-label">Пока удерживается хоткей</div>
+      <div class="hud-capsule">
+        <div class="flame-bar" role="presentation">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <p class="hud-caption">Упрощённая анимация: в приложении — Metal-пламя и отклик на голос.</p>
+    </div>
+
+    <div class="flow">
+      <strong style="color: var(--text); display: block; margin-bottom: 0.5rem;">Цикл за одну фразу</strong>
+      <code>фокус в поле</code> → <code>зажать хоткей</code> → <code>HUD + запись</code> → <code>отпустить</code> → <code>вставка текста</code>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <strong>Один раз: доступы и шорткат</strong>
+        В настройках VoiceInsert выдайте микрофон и распознавание речи; при необходимости — универсальный доступ для вставки в «сложные» поля.
+        Задайте удобную глобальную комбинацию для вставки в поле.
+      </li>
+      <li>
+        <strong>Кликните в нужное текстовое поле</strong>
+        Курсор должен быть там, куда нужно попасть диктовкой (как при обычной вставке из буфера).
+      </li>
+      <li>
+        <strong>Удерживайте хоткей и говорите</strong>
+        Появляется HUD у верхнего края экрана; идёт запись и потоковое распознавание. Можно не смотреть на панель — она не перехватывает фокус у рабочего приложения.
+      </li>
+      <li>
+        <strong>Отпустите клавиши</strong>
+        Сессия завершается, HUD скрывается, готовый текст вставляется в целевое поле (вставка/набор/автоматизация — в зависимости от приложения).
+      </li>
+    </ol>
+
+    <p style="color: var(--muted); font-size: 0.92rem;">
+      <strong style="color: var(--text);">Второй хоткей (опционально)</strong> — отдельный сценарий для Obsidian:
+      фраза сохраняется заметкой в выбранном хранилище (Markdown под структуру Voice Captures).
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/VoiceInsert-macos.zip">Скачать VoiceInsert (ZIP)</a>
+      <a class="btn btn-ghost" href="/">На главную</a>
+      <a class="btn btn-ghost" href="/faq">FAQ</a>
+    </div>
+
+    <footer class="note">
+      Демо-страница статическая (<code>/demo.html</code>). Реальный интерфейс и поведение могут слегка отличаться в зависимости от версии и темы HUD в настройках.
+    </footer>
+  </div>
+</body>
+</html>

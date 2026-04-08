@@ -1,6 +1,6 @@
 # VoiceInsert
 
-> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech (Speech framework). macOS 13+. Download as ZIP from the site.
+> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech (Speech framework). macOS 13+. Download as ZIP from the site. Product walkthrough: /demo.html
 
 ## Summary for indexing
 
