@@ -27,7 +27,7 @@ function siteUrl(): string {
 }
 
 function githubRepo(): string {
-  return process.env.VOICEINSERT_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+  return process.env.VOICEINSERT_GITHUB_REPO ?? "vushnevskuu/push-talk";
 }
 
 function tokenize(s: string): string[] {

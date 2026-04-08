@@ -27,13 +27,20 @@ Artifacts/
 # Node / Next.js
 node_modules/
 web/.next/
+web/tsconfig.tsbuildinfo
 
 # Obsidian head-agent: local secrets (never commit)
 tools/obsidian-head-agent/assets/*real*.json
 tools/obsidian-head-agent/assets/*.state.json
 tools/obsidian-head-agent/scripts/__pycache__/
 
-# Local IDE / debug — track shared MCP config, ignore other .cursor churn
+# Local IDE / debug — track shared MCP config + rules, ignore other .cursor churn
 .cursor/*
 !.cursor/mcp.json
+!.cursor/rules/
+!.cursor/rules/**
+
+# MemPalace (submodule) local Python env
+tools/mempalace/.venv/
+tools/mempalace/**/__pycache__/
 .agent/

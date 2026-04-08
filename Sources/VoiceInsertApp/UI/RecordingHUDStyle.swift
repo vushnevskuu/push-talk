@@ -42,7 +42,7 @@ enum RecordingHUDStyle: String, CaseIterable {
         case .bareWaves:
             return NSSize(width: 204, height: 42)
         case .flameBar:
-            return NSSize(width: 248, height: 76)
+            return NSSize(width: 248, height: 68)
         }
     }
 }

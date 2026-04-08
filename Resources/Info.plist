@@ -22,6 +22,8 @@
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>VoiceInsert needs microphone access to capture your voice for dictation.</string>
     <key>NSAppleEventsUsageDescription</key>

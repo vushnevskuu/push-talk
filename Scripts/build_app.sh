@@ -104,4 +104,12 @@ else
     rm -rf "$APP_DIR"
     echo "Removed temporary build app at: $APP_DIR"
   fi
+
+  # Один экземпляр: без `open -n`. Повторный pkill — на случай зависшего процесса до замены бандла.
+  if [[ "${VOICEINSERT_NO_OPEN_AFTER_BUILD:-0}" != "1" ]]; then
+    pkill -f "$INSTALL_DIR/Contents/MacOS/$APP_NAME" >/dev/null 2>&1 || true
+    sleep 0.25
+    open "$INSTALL_DIR"
+    echo "Launched: $INSTALL_DIR"
+  fi
 fi

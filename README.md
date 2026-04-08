@@ -7,7 +7,7 @@
 
 ## Repository status
 
-**MCP for AI assistants:** Product FAQ + links as a [Model Context Protocol](https://modelcontextprotocol.io) server — see [docs/MCP_ECOSYSTEM.md](docs/MCP_ECOSYSTEM.md) and `mcp/voiceinsert-mcp/`.
+**MCP for AI assistants:** Product FAQ + links as a [Model Context Protocol](https://modelcontextprotocol.io) server — see [docs/MCP_ECOSYSTEM.md](docs/MCP_ECOSYSTEM.md) and `mcp/voiceinsert-mcp/`. Optional **long-term memory** for Cursor: [MemPalace](https://github.com/milla-jovovich/mempalace) as `tools/mempalace` (submodule) + `./tools/bootstrap_mempalace.sh` — details in [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) (MemPalace + Obsidian).
 
 **Subscription (official builds):** Release ZIPs built from git tags embed `VoiceInsertEntitlementBaseURL` (see [docs/COMMERCIAL_DISTRIBUTION.md](docs/COMMERCIAL_DISTRIBUTION.md) and `Scripts/build_app.sh`). The Mac app calls your site’s `/api/entitlement` and blocks dictation without an active trial or paid period. Local dev: leave the plist URL empty or set `VOICEINSERT_SKIP_ENTITLEMENT=1`.
 

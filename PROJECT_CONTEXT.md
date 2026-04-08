@@ -201,6 +201,43 @@ rg "pattern" Sources Scripts Resources
 - **Developer ID** signing + **notarization** (requires Apple Developer Program; secrets in repo settings)
 - Universal binary or explicit **Intel** CI job if you must support x86_64 without local builds
 
+## MemPalace + Obsidian (долговременный контекст для AI)
+
+В репозиторий добавлен submodule **[MemPalace](https://github.com/milla-jovovich/mempalace)** — локальная семантическая память (ChromaDB, без облака) с MCP-инструментами для Cursor.
+
+**Важно:** нейросеть в новом чате **не помнит** прошлые разговоры автоматически. Память появляется, когда агент вызывает MCP (`mempalace_search`, `mempalace_add_drawer`, …) или когда ты подмешиваешь вывод `mempalace wake-up` в промпт.
+
+### Однократная настройка
+
+1. Подтянуть submodule: `git submodule update --init tools/mempalace`
+2. Установить зависимости: `./tools/bootstrap_mempalace.sh` (создаёт `tools/mempalace/.venv` и `pip install -e`)
+3. Перезапустить Cursor (MCP читает `.cursor/mcp.json` — сервер `mempalace` указывает на `.venv/bin/python -m mempalace.mcp_server`)
+
+### Связка с Obsidian
+
+1. Укажи путь к своему vault (замени на реальный):
+
+   ```bash
+   export VAULT="$HOME/Documents/Obsidian/МойVault"
+   ```
+
+2. Инициализация «дворца» и индексация заметок Markdown (проектный wing, чтобы не смешивать с чужими данными):
+
+   ```bash
+   tools/mempalace/.venv/bin/mempalace init "$VAULT"
+   tools/mempalace/.venv/bin/mempalace mine "$VAULT" --wing voiceinsert
+   ```
+
+   Повторяй `mine` после крупных изменений в vault или добавляй отдельные фрагменты через MCP `mempalace_add_drawer`.
+
+3. Опционально хранить индекс рядом с vault (вместо `~/.mempalace/palace`): в `~/.mempalace/config.json` задай `palace_path` или экспортируй `MEMPALACE_PALACE_PATH` в env перед запуском MCP (дублируй в настройках Cursor для сервера `mempalace`, если нужно).
+
+### Что уже в репозитории
+
+- `tools/mempalace/` — upstream MemPalace (submodule)
+- `.cursor/mcp.json` — зарегистрирован сервер `mempalace`
+- `.cursor/rules/mempalace-memory.mdc` — напоминание агенту искать/писать память
+
 ## Safe default instructions for Cursor agents
 
 - read this file first
@@ -209,3 +246,4 @@ rg "pattern" Sources Scripts Resources
 - if changing injection logic, review app + helper together
 - do not edit generated folders
 - do not stage unrelated local changes
+- for long-term context, use MemPalace MCP (see MemPalace section above)

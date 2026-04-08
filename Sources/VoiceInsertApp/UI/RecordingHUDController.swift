@@ -59,6 +59,18 @@ final class RecordingHUDController {
         }
     }
 
+    /// Сразу после отпускания хоткея: без fade-out панели.
+    func hideImmediately() {
+        guard let panel, isVisible else { return }
+        isVisible = false
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            panel.animator().alphaValue = 0
+        }
+        panel.alphaValue = 0
+        panel.orderOut(nil)
+    }
+
     func updateStyle(_ style: RecordingHUDStyle) {
         currentStyle = style
         guard let panel, let feedbackModel, let hostingView else { return }

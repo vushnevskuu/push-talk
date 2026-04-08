@@ -24,62 +24,26 @@ private struct RecognitionCallbackError: LocalizedError, Sendable {
     }
 }
 
-/// RMS → 0…1 meter level (shared by tap + any future call sites).
-private enum TapAudioMath {
-    nonisolated static func normalizedLevel(from buffer: AVAudioPCMBuffer) -> Double {
-        let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return 0 }
-
-        if let channelData = buffer.floatChannelData {
-            let samples = channelData[0]
-            var sum: Float = 0
-            for index in 0..<frameLength {
-                let sample = samples[index]
-                sum += sample * sample
-            }
-            return normalizedUnit(fromRMS: sqrt(sum / Float(frameLength)))
-        }
-
-        if let channelData = buffer.int16ChannelData {
-            let samples = channelData[0]
-            var sum: Float = 0
-            for index in 0..<frameLength {
-                let sample = Float(samples[index]) / Float(Int16.max)
-                sum += sample * sample
-            }
-            return normalizedUnit(fromRMS: sqrt(sum / Float(frameLength)))
-        }
-
-        return 0
-    }
-
-    nonisolated private static func normalizedUnit(fromRMS rms: Float) -> Double {
-        let clampedRMS = max(rms, 0.000_01)
-        let decibels = 20 * log10(clampedRMS)
-        let normalized = (decibels + 52) / 52
-        return Double(min(max(normalized, 0), 1))
-    }
-}
-
 /// Bridges real-time audio thread → optional recognition request without reinstalling `installTap`
 /// (repeated remove/install caused Core Audio I/O glitches in other apps’ playback, e.g. Bluetooth).
 private final class InputAudioTapBridge: @unchecked Sendable {
     private let lock = NSLock()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     /// Must be `@Sendable`: `installTap` runs on a realtime queue — never store a `@MainActor` closure here (Swift 6 traps).
-    private var onLevel: (@Sendable (Double) -> Void)?
+    private var onMetrics: (@Sendable (VoiceInsertAudioFrameMetrics) -> Void)?
+    private let fftAnalyzer = FlameFFTAnalyzer()
 
-    func setPipe(request: SFSpeechAudioBufferRecognitionRequest?, onLevel: (@Sendable (Double) -> Void)?) {
+    func setPipe(request: SFSpeechAudioBufferRecognitionRequest?, onMetrics: (@Sendable (VoiceInsertAudioFrameMetrics) -> Void)?) {
         lock.lock()
         self.request = request
-        self.onLevel = onLevel
+        self.onMetrics = onMetrics
         lock.unlock()
     }
 
     func process(buffer: AVAudioPCMBuffer) {
         lock.lock()
         let req = request
-        let handler = onLevel
+        let handler = onMetrics
         lock.unlock()
 
         if let req {
@@ -87,8 +51,8 @@ private final class InputAudioTapBridge: @unchecked Sendable {
         }
 
         if let handler {
-            let level = TapAudioMath.normalizedLevel(from: buffer)
-            handler(level)
+            let metrics = fftAnalyzer.analyze(buffer: buffer)
+            handler(metrics)
         }
     }
 }
@@ -147,7 +111,7 @@ final class SpeechRecognitionService {
         locale: Locale,
         addsPunctuation: Bool,
         partialHandler: @escaping @MainActor (String) -> Void,
-        levelHandler: @escaping @MainActor (Double) -> Void
+        levelHandler: @escaping @MainActor (VoiceInsertAudioFrameMetrics) -> Void
     ) throws {
         cancelDeferredEngineStop()
 
@@ -184,11 +148,11 @@ final class SpeechRecognitionService {
         self.sessionToken = token
         persistDebugSnapshot(state: "session_started")
 
-        tapBridge.setPipe(request: request, onLevel: { @Sendable level in
+        tapBridge.setPipe(request: request, onMetrics: { @Sendable metrics in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.recordObservedAudioLevel(level)
-                levelHandler(level)
+                self.recordObservedAudioLevel(metrics.rmsNormalized)
+                levelHandler(metrics)
             }
         })
 
@@ -224,7 +188,8 @@ final class SpeechRecognitionService {
     func finishSession() async throws -> String {
         stopAudioCapture()
         recognitionRequest?.endAudio()
-        try? await Task.sleep(for: .milliseconds(80))
+        // Короткая уступка рантайму после endAudio; 80 ms ощущалась как лишняя пауза перед вставкой.
+        try? await Task.sleep(for: .milliseconds(18))
         persistDebugSnapshot(state: "awaiting_recognition_result")
 
         if let deferredResult {
@@ -327,7 +292,7 @@ final class SpeechRecognitionService {
     }
 
     private func stopAudioCapture() {
-        tapBridge.setPipe(request: nil, onLevel: nil)
+        tapBridge.setPipe(request: nil, onMetrics: nil)
 
         if keepInputWarmBetweenSessions {
             do {
@@ -399,7 +364,7 @@ final class SpeechRecognitionService {
         finishTimeoutTask?.cancel()
         finishTimeoutTask = Task { @MainActor [weak self] in
             while let self, !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(150))
+                try? await Task.sleep(for: .milliseconds(80))
 
                 guard self.sessionToken == token else { return }
                 guard self.finishContinuation != nil else { return }
@@ -408,7 +373,7 @@ final class SpeechRecognitionService {
 
                 if !self.lastTranscript.isEmpty,
                    self.lastRecognitionUpdateAt != .distantPast,
-                   Date().timeIntervalSince(self.lastRecognitionUpdateAt) >= 0.35 {
+                   Date().timeIntervalSince(self.lastRecognitionUpdateAt) >= 0.16 {
                     self.resolveFinish(
                         with: .success(
                             self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -465,7 +430,7 @@ final class SpeechRecognitionService {
 
     private func teardownInputCapture() {
         cancelDeferredEngineStop()
-        tapBridge.setPipe(request: nil, onLevel: nil)
+        tapBridge.setPipe(request: nil, onMetrics: nil)
 
         if audioEngine.isRunning {
             audioEngine.stop()

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { macAppZipPath, donationPageUrl } from "@/lib/site";
 
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
 
 export default function SuccessPage() {
   const githubBase = `https://github.com/${defaultRepo}`;

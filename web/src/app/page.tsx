@@ -60,7 +60,7 @@ export const viewport: Viewport = {
 
 export default function HomePage() {
   const origin = siteOrigin();
-  const repo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+  const repo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
   const github = `https://github.com/${repo}`;
 
   const softwareJsonLd = {

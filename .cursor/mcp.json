@@ -7,6 +7,11 @@
         "VOICEINSERT_SITE_URL": "https://push-talk.vercel.app",
         "VOICEINSERT_GITHUB_REPO": "vushnevskuu/push-talk"
       }
+    },
+    "mempalace": {
+      "command": "${workspaceFolder}/tools/mempalace/.venv/bin/python",
+      "args": ["-m", "mempalace.mcp_server"],
+      "cwd": "${workspaceFolder}/tools/mempalace"
     }
   }
 }

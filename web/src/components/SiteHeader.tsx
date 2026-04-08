@@ -1,6 +1,6 @@
 import { macAppZipPath } from "@/lib/site";
 
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
 
 const HUMAN_TRANCE_SRC = "/human-trance.svg";
 /** Кнопка-вектор: ~/Desktop/мусор/KNOPKA.svg → public/musor-knopka.svg */

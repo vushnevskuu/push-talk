@@ -922,6 +922,7 @@ private struct RecordingHUDStylePreview: View {
     let style: RecordingHUDStyle
     let levels: [Double]
     let compact: Bool
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         Group {
@@ -968,25 +969,39 @@ private struct RecordingHUDStylePreview: View {
     }
 
     private var flameBar: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: compact ? 14 : 18, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.orange.opacity(0.38), Color.white.opacity(0.2)],
-                                startPoint: .bottomLeading,
-                                endPoint: .topTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
+        TimelineView(.periodic(from: .now, by: 1.0 / 45.0)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let demo = FlameAudioDisplayState.previewDemo(elapsed: t)
+            let cornerR = compact ? CGFloat(14) : CGFloat(18)
+            let shape = RoundedRectangle(cornerRadius: cornerR, style: .continuous)
 
-            FlameWaveVisualizer(levels: levels, compact: compact)
-                .frame(width: compact ? 72 : 136, height: compact ? 22 : 32)
+            ZStack {
+                FlameMetalHUDView(audioState: demo, reducedMotion: accessibilityReduceMotion)
+                    .frame(width: compact ? 72 : 140, height: compact ? 22 : 34)
+                    .flameMetalSoftEdges(
+                        cornerRadius: compact ? 9 : 14,
+                        blur: compact ? 3.2 : 4.8,
+                        spread: compact ? 3.2 : 4.8
+                    )
+                    .background {
+                        FlameHUDChromeBackground(
+                            cornerRadius: cornerR,
+                            emberPulse: CGFloat(demo.smoothedLevel),
+                            reducedMotion: accessibilityReduceMotion
+                        )
+                    }
+                    .compositingGroup()
+                    .clipShape(shape)
+                    .background {
+                        FlameHUDDropShadow(
+                            cornerRadius: cornerR,
+                            emberPulse: CGFloat(demo.smoothedLevel),
+                            reducedMotion: accessibilityReduceMotion
+                        )
+                    }
+            }
+            .frame(width: compact ? 102 : 188, height: compact ? 44 : 58)
         }
-        .frame(width: compact ? 102 : 184, height: compact ? 44 : 62)
     }
 
     private var compactOrbPreviewWaves: some View {

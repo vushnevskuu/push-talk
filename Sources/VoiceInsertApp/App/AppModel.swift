@@ -335,6 +335,7 @@ final class AppModel: ObservableObject {
 
         do {
             liveTranscript = ""
+            recordingFeedback.cancelWindDownIfNeeded()
             resetAudioVisualization()
             activeCaptureDestination = destination
             // Fast snapshot — full `captureTarget` can call `CGWindowListCopyWindowInfo` for Codex/Cursor and block for seconds.
@@ -350,8 +351,8 @@ final class AppModel: ObservableObject {
                 locale: dictationLocale,
                 addsPunctuation: autoPunctuation,
                 partialHandler: { _ in },
-                levelHandler: { [weak self] level in
-                    self?.pushAudioLevel(level)
+                levelHandler: { [weak self] metrics in
+                    self?.pushAudioMetrics(metrics)
                 }
             )
             recordingHUDController.show(animated: false)
@@ -371,7 +372,7 @@ final class AppModel: ObservableObject {
     func endHold(for destination: CaptureDestination) {
         guard phase == .recording, activeCaptureDestination == destination else { return }
 
-        recordingHUDController.hide()
+        recordingHUDController.hideImmediately()
         resetAudioVisualization()
         phase = .transcribing
         persistRuntimeDebugState()
@@ -399,6 +400,7 @@ final class AppModel: ObservableObject {
     func cancelActiveSession() {
         captureSessionGeneration += 1
         speechService.cancelSession()
+        recordingFeedback.cancelWindDownIfNeeded()
         recordingHUDController.hide()
         resetAudioVisualization()
         activeInsertionTarget = nil
@@ -763,8 +765,8 @@ final class AppModel: ObservableObject {
         await requestPermissions()
     }
 
-    private func pushAudioLevel(_ level: Double) {
-        recordingFeedback.push(level: level)
+    private func pushAudioMetrics(_ metrics: VoiceInsertAudioFrameMetrics) {
+        recordingFeedback.push(metrics: metrics)
     }
 
     private func resetAudioVisualization() {

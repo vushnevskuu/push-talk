@@ -1,6 +1,6 @@
 import { donationPageUrl, macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName } from "@/lib/site";
 
-const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk-public";
+const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
 
 type SiteFooterProps = {
   /** Landing: только опциональный donate — GitHub/релизы в шапке лендинга. */

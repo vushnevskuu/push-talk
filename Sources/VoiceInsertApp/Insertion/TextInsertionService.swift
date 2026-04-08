@@ -1328,6 +1328,12 @@ final class TextInsertionService {
             return false
         }
 
+        // Chromium/WebView (Arc, Chrome, …): клик по сохранённым координатам часто бьёт в overlay модалки
+        // (X/Twitter «What's happening?» и т.п.) → срабатывает «клик вне» и попап закрывается до paste.
+        if Self.isPasteOnlyInsertionBundle(bundleIdentifier) {
+            return false
+        }
+
         return target?.clickPoint != nil
     }
 
@@ -1648,8 +1654,19 @@ final class TextInsertionService {
         return id == "com.openai.codex" || id.hasPrefix("com.todesktop.")
     }
 
+    /// Chromium/WebView поля часто: (1) дублируют текст при `insertDirectly` + нативной реакции страницы;
+    /// (2) после Cmd+V AX `kAXValue` отстаёт → `insertViaPasteboard` считает вставку «неудачной» и жмёт Paste из меню ещё раз.
+    /// `shouldSkipMenuPasteRetryAfterCmdV` завязан на этот же список — одна вставка, без дубля.
     private static let pasteOnlyInsertionBundleIdentifiers: Set<String> = [
-        "com.openai.atlas"
+        "com.openai.atlas",
+        "company.thebrowser.Browser",
+        "com.google.Chrome",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "com.vivaldi.Vivaldi",
+        "com.operasoftware.Opera",
+        "com.operasoftware.OperaGX",
+        "com.kagi.kagimacOS"
     ]
 
     private static let unverifiablePasteBundleIdentifiers: Set<String> = [

@@ -3,6 +3,7 @@ import SwiftUI
 struct RecordingHUDView: View {
     @ObservedObject var model: RecordingFeedbackModel
     let style: RecordingHUDStyle
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         Group {
@@ -19,6 +20,7 @@ struct RecordingHUDView: View {
         }
         .animation(.linear(duration: 0.05), value: model.audioLevel)
         .animation(.linear(duration: 0.05), value: model.audioLevelHistory)
+        .animation(.linear(duration: 0.04), value: model.flameAudioState)
     }
 
     private var glassBarHUD: some View {
@@ -76,42 +78,40 @@ struct RecordingHUDView: View {
             }
     }
 
-    /// Same chrome as the glass bar; waveform replaced with flickering flame columns.
+    /// Хром под пламя: тёплое стекло + угли снизу + градиентная обводка (см. `FlameHUDChrome`).
     private var flameBarHUD: some View {
-        let corner = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let cornerR: CGFloat = 21
+        let shape = RoundedRectangle(cornerRadius: cornerR, style: .continuous)
 
         return ZStack {
-            FlameWaveVisualizer(levels: model.visualizerLevels(), compact: false)
-                .frame(width: 184, height: 42)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 15)
+            FlameMetalHUDView(audioState: model.flameAudioState, reducedMotion: accessibilityReduceMotion)
+                .frame(width: 190, height: 46)
+                .flameMetalSoftEdges(cornerRadius: 16, blur: 5.5, spread: 5.5)
+                .padding(.horizontal, 29)
+                .padding(.top, 7)
+                .padding(.bottom, 12)
                 .background {
-                    ZStack {
-                        corner.fill(.ultraThinMaterial)
-                        corner.stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.orange.opacity(0.35),
-                                    Color.white.opacity(0.14)
-                                ],
-                                startPoint: .bottomLeading,
-                                endPoint: .topTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                    }
+                    FlameHUDChromeBackground(
+                        cornerRadius: cornerR,
+                        emberPulse: CGFloat(model.flameAudioState.smoothedLevel),
+                        reducedMotion: accessibilityReduceMotion
+                    )
                 }
                 .compositingGroup()
-                .clipShape(corner)
+                .clipShape(shape)
                 .background {
-                    corner
-                        .fill(Color.black.opacity(0.32))
-                        .blur(radius: 14)
-                        .offset(y: 9)
-                        .opacity(0.78)
+                    FlameHUDDropShadow(
+                        cornerRadius: cornerR,
+                        emberPulse: CGFloat(model.flameAudioState.smoothedLevel),
+                        reducedMotion: accessibilityReduceMotion
+                    )
                 }
         }
         .frame(width: style.panelSize.width, height: style.panelSize.height)
+        .animation(
+            accessibilityReduceMotion ? .linear(duration: 0.07) : .easeOut(duration: 0.22),
+            value: model.flameAudioState.smoothedLevel
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 # VoiceInsert
 
-> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech (Speech framework). macOS 13+. Free download as ZIP; no account.
+> macOS menu bar app: hold a shortcut, speak, release — text into the focused field or Obsidian as Markdown. On-device Apple speech (Speech framework). macOS 13+. Download as ZIP from the site.
 
 ## Summary for indexing
 
@@ -17,7 +17,7 @@
 
 ## Source
 
-- Open source (MIT), GitHub releases distribute VoiceInsert-macos.zip.
+- https://github.com/vushnevskuu/push-talk — основной репозиторий; сборка macOS для лендинга: `web/public/VoiceInsert-macos.zip`.
 
 ## Do not
 
