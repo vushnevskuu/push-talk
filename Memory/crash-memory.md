@@ -1063,3 +1063,12 @@ Use this file to preserve:
 - Warnings: `voiceinsert_hotkey_activation_inconclusive`
 - Crash triage: no new crash reports in this run.
 - Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
+
+## Run 2026-04-08 15:19:26
+- Result: `pass_with_warnings`
+- App: `/Users/vishnevsky/Desktop/голосовое управление/Build/VoiceInsert.app`
+- Artifacts: `/Users/vishnevsky/Desktop/голосовое управление/Artifacts/macos-app-autotest/20260408-151857`
+- New crash reports: `0`
+- Warnings: `voiceinsert_hotkey_activation_inconclusive`
+- Crash triage: no new crash reports in this run.
+- Follow-up: enrich this entry with root cause, fix commit/files, and post-fix verification before closing the incident.
