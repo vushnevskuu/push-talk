@@ -17,7 +17,7 @@
 
 ## Source
 
-- https://github.com/vushnevskuu/push-talk — основной репозиторий; сборка macOS для лендинга: `web/public/VoiceInsert-macos.zip`.
+- https://github.com/vushnevskuu/push-talk — main repo; Mac build for the landing lives at `web/public/VoiceInsert-macos.zip`.
 
 ## Do not
 
