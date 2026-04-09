@@ -70,6 +70,9 @@ const defaultAuthorName = "Alexey Vishnevsky";
 /** Full profile URL; override with NEXT_PUBLIC_SITE_AUTHOR_LINKEDIN. */
 const defaultAuthorLinkedIn = "https://www.linkedin.com/in/vushnevskuu/";
 
+/** Portfolio / personal site for footer name link; override with NEXT_PUBLIC_SITE_AUTHOR_PORTFOLIO. */
+const defaultAuthorPortfolio = "https://vishnevsky.lovable.app/";
+
 export function siteAuthorName(): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_AUTHOR_NAME?.trim();
   return fromEnv || defaultAuthorName;
@@ -88,4 +91,15 @@ export function siteAuthorLinkedInUrl(): string {
     }
   }
   return defaultAuthorLinkedIn;
+}
+
+export function siteAuthorPortfolioUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_AUTHOR_PORTFOLIO?.trim();
+  if (fromEnv) {
+    const parsed = parseHttpUrl(fromEnv);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return defaultAuthorPortfolio;
 }

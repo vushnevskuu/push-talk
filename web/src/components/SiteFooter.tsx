@@ -1,4 +1,10 @@
-import { donationPageUrl, macAppZipPath, siteAuthorLinkedInUrl, siteAuthorName } from "@/lib/site";
+import {
+  donationPageUrl,
+  macAppZipPath,
+  siteAuthorLinkedInUrl,
+  siteAuthorName,
+  siteAuthorPortfolioUrl,
+} from "@/lib/site";
 
 const defaultRepo = process.env.NEXT_PUBLIC_GITHUB_REPO ?? "vushnevskuu/push-talk";
 
@@ -10,6 +16,7 @@ type SiteFooterProps = {
 export function SiteFooter({ landingMode = false }: SiteFooterProps) {
   const githubBase = `https://github.com/${defaultRepo}`;
   const name = siteAuthorName();
+  const portfolio = siteAuthorPortfolioUrl();
   const linkedIn = siteAuthorLinkedInUrl();
   const donate = donationPageUrl();
 
@@ -39,13 +46,14 @@ export function SiteFooter({ landingMode = false }: SiteFooterProps) {
         ) : null}
       </nav>
       <p className="site-footer-compact">
-        <a href={linkedIn} rel="noopener noreferrer" target="_blank" aria-label={`${name} on LinkedIn`}>
+        <a href={portfolio} rel="noopener noreferrer" target="_blank" aria-label={`${name} — portfolio`}>
           {name}
         </a>
+        <span className="site-footer-open-to-work"> · Open to work</span>
         <span className="site-footer-sep" aria-hidden="true">
           ·
         </span>
-        <a href={linkedIn} rel="noopener noreferrer" target="_blank">
+        <a href={linkedIn} rel="noopener noreferrer" target="_blank" aria-label={`${name} on LinkedIn`}>
           LinkedIn
         </a>
       </p>

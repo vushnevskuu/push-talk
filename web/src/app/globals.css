@@ -306,6 +306,13 @@ footer {
   user-select: none;
 }
 
+.site-footer-open-to-work {
+  font-style: italic;
+  color: var(--hud-amber);
+  opacity: 0.92;
+  font-weight: 500;
+}
+
 .site-footer-note {
   opacity: 0.88;
 }
@@ -1200,6 +1207,11 @@ body:has(.page-whispering-imps) .skip-link {
 
 .page-whispering-imps .site-footer-compact a:hover {
   color: var(--imp-crimson);
+}
+
+.page-whispering-imps .site-footer-open-to-work {
+  color: var(--imp-crimson-dark);
+  opacity: 0.9;
 }
 
 .page-whispering-imps a:focus-visible {
